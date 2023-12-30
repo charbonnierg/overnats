@@ -44,5 +44,5 @@ LIST_CONSUMERS = Command(
     ),
     message=JetstreamApiV1ConsumerListRequest,
     reply=JetstreamApiV1ConsumerListResponse,
-    error=str,
+    error=bytes,
 )

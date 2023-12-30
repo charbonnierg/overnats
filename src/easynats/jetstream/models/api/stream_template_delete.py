@@ -43,5 +43,5 @@ DELETE_STREAM_TEMPLATE = Command(
     ),
     message=type(None),
     reply=JetStreamApiV1StreamTemplateDeleteResponse,
-    error=str,
+    error=bytes,
 )

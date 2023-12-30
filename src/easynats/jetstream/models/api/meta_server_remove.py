@@ -49,5 +49,5 @@ REMOVE_SERVER = Command(
     ),
     message=JetstreamApiV1MetaServerRemoveRequest,
     reply=JetstreamApiV1MetaServerRemoveResponse,
-    error=str,
+    error=bytes,
 )

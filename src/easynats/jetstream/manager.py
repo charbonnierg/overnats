@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import json
 import pathlib
 from typing import AsyncIterator, Callable
 
-from .api import JetStreamClient
+from easynats.jetstream.models.api.api_error import Error
+
+from .api import JetStreamAPIException, JetStreamClient
 from .entities.stream import Stream, StreamConfig, StreamMeta
 
 
@@ -50,17 +51,26 @@ class StreamManager:
         stream_info_response = await self.client.get_stream_info(
             stream_name=stream_name
         )
-        return Stream.from_stream_info_response(
-            client=self.client, stream_info_response=stream_info_response
+        return Stream.from_stream_info(
+            client=self.client, stream_info=stream_info_response
         )
 
     async def create(self, stream_config: StreamConfig) -> Stream:
         """Create a new Stream."""
+        names = await self.list_names()
+        if stream_config.name in names:
+            raise JetStreamAPIException(
+                error=Error(
+                    code=400,
+                    description="name is already used by an existing stream",
+                    err_code=10058,
+                )
+            )
         stream_create_response = await self.client.create_stream(
             stream_config=stream_config
         )
-        return Stream.from_stream_create_response(
-            client=self.client, stream_create_response=stream_create_response
+        return Stream.from_stream_info(
+            client=self.client, stream_info=stream_create_response
         )
 
     async def configure(self, stream_config: StreamConfig) -> Stream:
@@ -74,8 +84,8 @@ class StreamManager:
         if stream.config == stream_config:
             return stream
         stream_update_response = await self.client.update_stream(stream_config)
-        return Stream.from_stream_update_response(
-            client=self.client, stream_update_response=stream_update_response
+        return Stream.from_stream_info(
+            client=self.client, stream_info=stream_update_response
         )
 
     async def backup(
@@ -126,6 +136,10 @@ class StreamManager:
                 subject=resp.deliver_subject,
                 payload=chunk,
             )
+        await self.client.connection.connection.request(
+            subject=resp.deliver_subject,
+            payload=b"",
+        )
         return await self.get(stream_name=stream_meta.config.name)
 
     async def backup_to_directory(
@@ -153,7 +167,7 @@ class StreamManager:
                 no_consumers=no_consumers,
             )
 
-        meta_filepath.write_text(json.dumps(meta.to_dict(), indent=2))
+        meta_filepath.write_bytes(meta.to_json())
         return meta
 
     async def restore_from_directory(
@@ -180,10 +194,10 @@ class StreamManager:
                 while True:
                     data = chunks_file.read(chunk_size)
                     if not data:
-                        break
+                        return
                     yield data
 
             return await self.restore(
-                stream_meta=StreamMeta.from_dict(json.loads(meta_filepath.read_text())),
+                stream_meta=StreamMeta.from_json(meta_filepath.read_text()),
                 chunks_reader=reader(),
             )

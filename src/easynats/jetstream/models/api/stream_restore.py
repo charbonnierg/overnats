@@ -58,5 +58,5 @@ RESTORE_STREAM = Command(
     ),
     message=JetStreamApiV1StreamRestoreRequest,
     reply=JetstreamApiV1StreamRestoreResponse,
-    error=str,
+    error=bytes,
 )

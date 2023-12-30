@@ -62,5 +62,5 @@ STEPDOWN_LEADER = Command(
     ),
     message=JetstreamApiV1MetaLeaderStepdownRequest,
     reply=JetstreamApiV1MetaLeaderStepdownResponse,
-    error=str,
+    error=bytes,
 )

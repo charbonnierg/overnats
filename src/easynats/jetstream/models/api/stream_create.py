@@ -72,5 +72,5 @@ CREATE_STREAM = Command(
     ),
     message=JetstreamApiV1StreamCreateRequest,
     reply=JetstreamApiV1StreamCreateResponse,
-    error=str,
+    error=bytes,
 )

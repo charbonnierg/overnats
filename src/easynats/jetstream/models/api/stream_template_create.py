@@ -69,5 +69,5 @@ CREATE_STREAM_TEMPLATE = Command(
     ),
     message=JetStreamApiV1StreamTemplateCreateRequest,
     reply=JetStreamApiV1StreamTemplateCreateResponse,
-    error=str,
+    error=bytes,
 )

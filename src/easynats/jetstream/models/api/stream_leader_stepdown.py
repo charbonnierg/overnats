@@ -42,5 +42,5 @@ STEPDOWN_STREAM_LEADER = Command(
     ),
     message=type(None),
     reply=JetstreamApiV1StreamLeaderStepdownResponse,
-    error=str,
+    error=bytes,
 )

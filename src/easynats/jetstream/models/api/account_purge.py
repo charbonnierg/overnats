@@ -31,5 +31,5 @@ PURGE_ACCOUNT = Command(
     ),
     message=type(None),
     reply=JetstreamApiV1AccountPurgeResponse,
-    error=str,
+    error=bytes,
 )

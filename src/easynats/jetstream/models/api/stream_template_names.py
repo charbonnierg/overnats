@@ -36,5 +36,5 @@ LIST_STREAM_TEMPLATE_NAMES = Command(
     ),
     message=JetStreamApiV1StreamTemplateNamesRequest,
     reply=JetStreamApiV1StreamTemplateNamesResponse,
-    error=str,
+    error=bytes,
 )

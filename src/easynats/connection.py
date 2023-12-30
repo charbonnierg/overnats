@@ -52,7 +52,7 @@ class TypedReply(Generic[ParamsT, ReplyT, ErrorT]):
 
     def get_error(self) -> ErrorT | None:
         """Get the error payload or None if reply is a success."""
-        if self.success:
+        if not self.success:
             return self.payload  # type: ignore
 
     def get_data(self) -> ReplyT | None:

@@ -90,5 +90,5 @@ GET_CONSUMER_INFO = Command(
     ),
     message=type(None),
     reply=JetstreamApiV1ConsumerInfoResponse,
-    error=str,
+    error=bytes,
 )

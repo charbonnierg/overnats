@@ -46,5 +46,5 @@ STEPDOWN_CONSUMER_LEADER = Command(
     ),
     message=type(None),
     reply=JetstreamApiV1ConsumerLeaderStepdownResponse,
-    error=str,
+    error=bytes,
 )

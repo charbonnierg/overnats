@@ -50,5 +50,5 @@ LIST_CONSUMER_NAMES = Command(
     ),
     message=JetstreamApiV1ConsumerNamesRequest,
     reply=JetstreamApiV1ConsumerNamesResponse,
-    error=str,
+    error=bytes,
 )

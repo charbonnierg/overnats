@@ -52,5 +52,5 @@ DELETE_STREAM_MSG = Command(
     ),
     message=JetStreamApiV1StreamMsgDeleteRequest,
     reply=JetstreamApiV1StreamMsgDeleteResponse,
-    error=str,
+    error=bytes,
 )

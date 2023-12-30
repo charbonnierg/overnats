@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import base64
+import datetime
 import json
+from dataclasses import dataclass
 from typing import Any, NoReturn, TypeVar
 
+import nats.js.api
+from nats.aio.client import _CRLF_  # pyright: ignore[reportPrivateUsage]
+from nats.aio.client import _CRLF_LEN_  # pyright: ignore[reportPrivateUsage]
+from nats.aio.client import _SPC_BYTE_  # pyright: ignore[reportPrivateUsage]
+from nats.aio.client import NATS_HDR_LINE, NATS_HDR_LINE_SIZE, STATUS_MSG_LEN
 from typing_extensions import Literal
 
 from ..connection import NatsConnection, TypedReply
@@ -106,7 +113,6 @@ from .models.api.stream_msg_get import (
     JetStreamApiV1StreamDirectMsgGetParams,
     JetStreamApiV1StreamMsgGetParams,
     JetStreamApiV1StreamMsgGetRequest,
-    StreamMsgGetResponse,
 )
 from .models.api.stream_names import (
     LIST_STREAM_NAMES,
@@ -167,6 +173,76 @@ from .models.api.stream_update import (
 T = TypeVar("T")
 
 
+class JetStreamAPIException(Exception):
+    def __init__(self, error: Error) -> None:
+        self.error = error
+        self.msg = error.description
+        super().__init__(error.description)
+
+    def __repr__(self) -> str:
+        return f"JetStreamAPIException({self.error})"
+
+
+@dataclass
+class StreamMessage:
+    stream: str
+    """The stream the message was read from"""
+    subject: str
+    """The subject the message was read from."""
+    payload: bytes
+    """The message payload."""
+    sequence: int
+    """The message sequence number."""
+    timestamp: datetime.datetime
+    """The message timestamp."""
+    headers: dict[str, str]
+    """The message headers."""
+
+    @classmethod
+    def from_direct_message(
+        cls, headers: dict[str, str], payload: bytes | None
+    ) -> StreamMessage:
+        # Check response status
+        status = headers.pop("Status", None)
+        if status:
+            raise JetStreamAPIException(
+                Error(
+                    code=int(status),
+                    description=headers.pop("Description", ""),
+                )
+            )
+        if payload is None:
+            raise Exception("Expected payload")
+        # Check stream
+        stream = headers.pop("Nats-Stream", None)
+        if not stream:
+            raise RuntimeError("Expected stream header")
+        # Check subject
+        subject = headers.pop("Nats-Subject", None)
+        if not subject:
+            raise RuntimeError("Expected subject header")
+        # Check sequence
+        raw_seq = headers.pop("Nats-Sequence", None)
+        if not raw_seq:
+            raise RuntimeError("Expected sequence header")
+        sequence = int(raw_seq)
+        # Check timestamp
+        raw_timestamp = headers.pop("Nats-Time-Stamp", None)
+        if not raw_timestamp:
+            raise RuntimeError("Expected timestamp header")
+        timestamp = datetime.datetime.fromisoformat(raw_timestamp[:26]).replace(
+            tzinfo=datetime.timezone.utc
+        )
+        return cls(
+            stream=stream,
+            subject=subject,
+            payload=payload,
+            sequence=sequence,
+            timestamp=timestamp,
+            headers=headers,
+        )
+
+
 class JetStreamClient:
     """Low-level JetStream client.
 
@@ -183,17 +259,18 @@ class JetStreamClient:
         self.js_api_prefix = api_prefix
 
     def _raise_jetstream_error(self, error: Error) -> NoReturn:
-        raise Exception(error.code)
+        raise JetStreamAPIException(error)
 
     def _unwrap_reply(
         self,
-        reply: TypedReply[Any, T, str] | TypedReply[Any, T | JetStreamApiV1Error, str],
+        reply: TypedReply[Any, T, bytes]
+        | TypedReply[Any, T | JetStreamApiV1Error, bytes],
     ) -> T:
         if data := reply.get_data():
             if isinstance(data, JetStreamApiV1Error):
                 self._raise_jetstream_error(data.error)
             return data
-        raise Exception(reply.error())
+        raise Exception(reply.error().decode())
 
     async def get_account_info(self) -> AccountInfoResponse:
         """Get information about the current JetStream account.
@@ -402,7 +479,7 @@ class JetStreamClient:
         self,
         stream_name: str,
         subject: str,
-    ) -> bytes:
+    ) -> StreamMessage:
         """Get the last message for the specified subject from the specified stream.
 
         Args:
@@ -422,11 +499,9 @@ class JetStreamClient:
             payload=None,
             prefix=self.js_api_prefix,
         )
-        # Check response status
-        status = reply.headers.pop("Status", None)
-        if status:
-            raise Exception(status)
-        return reply.data()
+        return StreamMessage.from_direct_message(
+            headers=reply.headers, payload=reply.get_data()
+        )
 
     async def direct_get_stream_msg(
         self,
@@ -434,7 +509,7 @@ class JetStreamClient:
         sequence: int | None = None,
         last_by_subject: str | None = None,
         next_by_subject: str | None = None,
-    ) -> bytes:
+    ) -> StreamMessage:
         """Get the specified message from the specified stream.
 
         Args:
@@ -455,25 +530,10 @@ class JetStreamClient:
             ),
             prefix=self.js_api_prefix,
         )
-        # Check response status
-        status = reply.headers.pop("Status", None)
-        if status:
-            raise Exception(status)
-        # # Check subject
-        # subject = reply.headers.pop("Nats-Subject", None)
-        # if not subject:
-        #     raise RuntimeError("Expected subject header")
-        # # Check sequence
-        # raw_seq = reply.headers.pop("Nats-Sequence", None)
-        # if not raw_seq:
-        #     raise RuntimeError("Expected sequence header")
-        # sequence = int(raw_seq)
-        # # Check timestamp
-        # raw_timestamp = reply.headers.pop("Nats-Time-Stamp", None)
-        # if not raw_timestamp:
-        #     raise RuntimeError("Expected timestamp header")
-        # timestamp = datetime.datetime.fromisoformat(raw_timestamp)
-        return reply.data()
+        return StreamMessage.from_direct_message(
+            headers=reply.headers,
+            payload=reply.get_data(),
+        )
 
     async def get_stream_msg(
         self,
@@ -481,7 +541,7 @@ class JetStreamClient:
         sequence: int | None = None,
         last_by_subject: str | None = None,
         next_by_subject: str | None = None,
-    ) -> StreamMsgGetResponse:
+    ) -> StreamMessage:
         """Get the specified message from the specified stream.
 
         - `sequence` and `last_by_subject` are mutually exclusive.
@@ -509,7 +569,23 @@ class JetStreamClient:
             ),
             prefix=self.js_api_prefix,
         )
-        return self._unwrap_reply(reply)
+        response = self._unwrap_reply(reply)
+        raw_headers = (
+            base64.b64decode(response.message.hdrs) if response.message.hdrs else b""
+        )
+        headers = self._parse_headers(raw_headers)
+        return StreamMessage(
+            stream=stream_name,
+            subject=response.message.subject,
+            payload=base64.b64decode(response.message.data)
+            if response.message.data
+            else b"",
+            sequence=response.message.seq,
+            timestamp=datetime.datetime.fromisoformat(
+                response.message.time[:26]
+            ).replace(tzinfo=datetime.timezone.utc),
+            headers=headers,
+        )
 
     async def create_stream(self, stream_config: StreamConfig) -> StreamCreateResponse:
         """Create a stream.
@@ -1093,265 +1169,78 @@ class JetStreamClient:
             domain=ack.domain,
         )
 
+    def _parse_headers(self, headers: bytes) -> dict[str, str]:
+        if not headers:
+            return {}
+        nc = self.connection.connection.client
+        hdr: dict[str, str] | None = None
+        raw_headers = headers[NATS_HDR_LINE_SIZE:]
 
-class Stream:
-    def __init__(self, name: str, client: JetStreamClient) -> None:
-        self.name = name
-        self.client = client
-        self.infos: StreamInfoResponse | None = None
+        # If the first character is an empty space, then this is
+        # an inline status message sent by the server.
+        #
+        # NATS/1.0 404\r\n\r\n
+        # NATS/1.0 503\r\n\r\n
+        # NATS/1.0 404 No Messages\r\n\r\n
+        #
+        # Note: it is possible to receive a message with both inline status
+        # and a set of headers.
+        #
+        # NATS/1.0 100\r\nIdle Heartbeat\r\nNats-Last-Consumer: 1016\r\nNats-Last-Stream: 1024\r\n\r\n
+        #
+        if raw_headers[0] == _SPC_BYTE_:
+            # Special handling for status messages.
+            line = headers[len(NATS_HDR_LINE) + 1 :]
+            status = line[:STATUS_MSG_LEN]
+            desc = line[STATUS_MSG_LEN + 1 : len(line) - _CRLF_LEN_ - _CRLF_LEN_]
+            stripped_status = status.strip().decode()
 
-    async def open(self) -> None:
-        """Open the stream."""
-        await self.refresh()
+            # Process as status only when it is a valid integer.
+            hdr = {}
+            if stripped_status.isdigit():
+                hdr[nats.js.api.Header.STATUS.value] = stripped_status
 
-    async def close(self) -> None:
-        """Close the stream."""
-        self.infos = None
+            # Move the raw_headers to end of line
+            i = raw_headers.find(_CRLF_)
+            raw_headers = raw_headers[
+                i + _CRLF_LEN_ :
+            ]
 
-    async def refresh(self) -> StreamInfoResponse:
-        """Refresh the stream infos."""
-        self.infos = await self.client.get_stream_info(self.name)
-        return self.infos
+            if len(desc) > 0:
+                # Heartbeat messages can have both headers and inline status,
+                # check that there are no pending headers to be parsed.
+                i = desc.find(_CRLF_)
+                if i > 0:
+                    hdr[nats.js.api.Header.DESCRIPTION] = desc[:i].decode()
+                    parsed_hdr = nc._hdr_parser.parsebytes(  # pyright: ignore[reportPrivateUsage]
+                        desc[i + _CRLF_LEN_ :]
+                    )
+                    for k, v in parsed_hdr.items():
+                        hdr[k] = v
+                else:
+                    # Just inline status...
+                    hdr[nats.js.api.Header.DESCRIPTION] = desc.decode()
 
-    async def get_msg(
-        self,
-        sequence: int | None = None,
-        last_by_subject: str | None = None,
-        next_by_subject: str | None = None,
-    ) -> bytes:
-        """Get the specified message from the stream.
+        if not len(raw_headers) > _CRLF_LEN_:
+            return hdr or {}
 
-        If the stream is configured to allow direct access, the message will be fetched
-        using the DIRECT api, otherwise it will be fetched using the regular api.
+        #
+        # Example header without status:
+        #
+        # NATS/1.0\r\nfoo: bar\r\nhello: world
+        #
+        raw_headers = headers[
+            NATS_HDR_LINE_SIZE + _CRLF_LEN_ :
+        ]
+        parsed_hdr = {
+            k.strip(): v.strip()
+            for k, v in nc._hdr_parser.parsebytes(  # pyright: ignore[reportPrivateUsage]
+                raw_headers
+            ).items()
+        }
+        if hdr:
+            hdr.update(parsed_hdr)
+        else:
+            hdr = parsed_hdr
 
-        Args:
-            sequence: get the message with this sequence number
-            last_by_subject: get the last message for this subject
-            next_by_subject: get the next message for this subject wit sequence greater than `seq`
-
-        Returns:
-            The message.
-        """
-        if not self.infos:
-            raise RuntimeError("Stream is not open")
-        # Request validation
-        if sequence is None and next_by_subject:
-            raise ValueError("next_by_subject requires sequence to be specified")
-        # Direct bytes API
-        if self.infos.config.allow_direct:
-            # Last by subject shortcut
-            if sequence is None and last_by_subject:
-                return await self.client.direct_get_last_stream_msg_for_subject(
-                    stream_name=self.name,
-                    subject=last_by_subject,
-                )
-            # Regular direct api
-            return await self.client.direct_get_stream_msg(
-                stream_name=self.name,
-                sequence=sequence,
-                last_by_subject=last_by_subject,
-                next_by_subject=next_by_subject,
-            )
-        # Regular JSON (base64-encoded) API
-        response = await self.client.get_stream_msg(
-            stream_name=self.name,
-            sequence=sequence,
-            last_by_subject=last_by_subject,
-            next_by_subject=next_by_subject,
-        )
-        if not response.message.data:
-            return b""
-        return base64.b64decode(response.message.data)
-
-    async def publish(
-        self,
-        subject: str,
-        payload: bytes | None = None,
-        headers: dict[str, Any] | None = None,
-        msg_id: str | None = None,
-        expected_last_msg_id: str | None = None,
-        expected_last_sequence: int | None = None,
-        expected_last_subject_sequence: int | None = None,
-        purge: Literal["sub", "all"] | None = None,
-    ) -> PubAckResponse:
-        """Publish a message to the stream.
-
-        Args:
-            subject: The subject to publish to.
-            payload: The message payload.
-            headers: The message headers.
-            msg_id: The message ID.
-            expected_last_msg_id: The last message ID (optional).
-            expected_last_sequence: The last sequence number (optional).
-            expected_last_subject_sequence: The last sequence number for the subject (optional).
-            purge: Used to apply a purge of all prior messages in the stream or at the subject-level before publishing.
-
-        Raises:
-            BadLastMsgIdError: If the last message ID does not match the expected last message ID.
-            BadLastSequenceError: If the last sequence number does not match the expected last sequence number.
-            BadLastSubjectSequenceError: If the last sequence number for the subject does not match the expected last sequence number for the subject.
-
-        Returns:
-            The publish acknowledgement response containg the sequence of the published message.
-        """
-        if not self.infos:
-            raise RuntimeError("Stream is not open")
-        return await self.client.publish(
-            subject=subject,
-            payload=payload,
-            headers=headers,
-            msg_id=msg_id,
-            expected_stream=self.name,
-            expected_last_msg_id=expected_last_msg_id,
-            expected_last_sequence=expected_last_sequence,
-            expected_last_subject_sequence=expected_last_subject_sequence,
-            purge=purge,
-        )
-
-    async def delete(self) -> None:
-        """Delete the stream.
-
-        Returns:
-            A response containing a boolean indicating that the stream was successfully deleted.
-        """
-        if not self.infos:
-            raise RuntimeError("Stream is not open")
-        await self.client.delete_stream(self.name)
-        self.infos = None
-
-    async def purge(
-        self,
-        subject: str | None = None,
-        until_sequence: int | None = None,
-        keep: int | None = None,
-    ) -> int:
-        """Purge all data from the stream.
-
-        Args:
-            subject: Only purge messages on this subject.
-            until_sequence: Purge messages up to this sequence number.
-            keep: Keep this number of messages.
-
-        Returns:
-            A response containing a boolean indicating that the purge was successfully initiated.
-        """
-        if not self.infos:
-            raise RuntimeError("Stream is not open")
-        response = await self.client.purge_stream(
-            stream_name=self.name,
-            subject=subject,
-            until_sequence=until_sequence,
-            keep=keep,
-        )
-        return response.purged
-
-    async def update(
-        self,
-        stream_config: StreamConfig,
-    ) -> None:
-        """Update the stream.
-
-        Args:
-            stream_config: The stream configuration.
-
-        Returns:
-            A response containing the updated stream configuration and state.
-        """
-        if not self.infos:
-            raise RuntimeError("Stream is not open")
-        if stream_config.name != self.name:
-            raise ValueError("stream_config.name must match stream name")
-        await self.client.update_stream(stream_config)
-        await self.refresh()
-
-    async def list_consumer_names(self) -> list[str]:
-        """List the names of all consumers in the stream.
-
-        Args:
-            offset: Offset into the list of consumers.
-
-        Returns:
-            A response containing a list of consumer names.
-        """
-        if not self.infos:
-            raise RuntimeError("Stream is not open")
-        names: list[str] = []
-        response = await self.client.list_consumer_names(
-            stream_name=self.name,
-            offset=0,
-        )
-        names.extend(response.consumers)
-        fetched = len(names)
-
-        while fetched < response.total:
-            response = await self.client.list_consumer_names(
-                stream_name=self.name,
-                offset=fetched,
-            )
-            names.extend(response.consumers)
-            fetched = len(names)
-
-        return names
-
-
-class PushConsumer:
-    def __init__(
-        self,
-        stream_name: str,
-        consumer_name: str,
-        client: JetStreamClient,
-    ) -> None:
-        self.stream_name = stream_name
-        self.consumer_name = consumer_name
-        self.client = client
-        self.infos: ConsumerInfoResponse | None = None
-
-    async def open(self) -> None:
-        """Open the consumer."""
-        await self.refresh()
-
-    async def close(self) -> None:
-        """Close the consumer."""
-        self.infos = None
-
-    async def refresh(self) -> ConsumerInfoResponse:
-        """Refresh the consumer infos."""
-        self.infos = await self.client.get_consumer_info(
-            stream_name=self.stream_name,
-            consumer_name=self.consumer_name,
-        )
-        return self.infos
-
-    async def get_next_msg(
-        self,
-    ) -> bytes:
-        raise NotImplementedError
-
-
-class PullConsumer:
-    def __init__(
-        self,
-        stream_name: str,
-        consumer_name: str,
-        client: JetStreamClient,
-    ) -> None:
-        self.stream_name = stream_name
-        self.consumer_name = consumer_name
-        self.client = client
-        self.infos: ConsumerInfoResponse | None = None
-
-    async def open(self) -> None:
-        """Open the consumer."""
-        await self.refresh()
-
-    async def close(self) -> None:
-        """Close the consumer."""
-        self.infos = None
-
-    async def refresh(self) -> ConsumerInfoResponse:
-        """Refresh the consumer infos."""
-        self.infos = await self.client.get_consumer_info(
-            stream_name=self.stream_name,
-            consumer_name=self.consumer_name,
-        )
-        return self.infos
+        return hdr or {}

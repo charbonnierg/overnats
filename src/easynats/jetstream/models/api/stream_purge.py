@@ -64,5 +64,5 @@ PURGE_STREAM = Command(
     ),
     message=JetStreamApiV1StreamPurgeRequest,
     reply=JetstreamApiV1StreamPurgeResponse,
-    error=str,
+    error=bytes,
 )

@@ -58,5 +58,5 @@ STREAM_PEER_REMOVE = Command(
     ),
     message=JetStreamApiV1StreamRemovePeerRequest,
     reply=IoNatsJetstreamApiV1StreamRemovePeerResponse,
-    error=str,
+    error=bytes,
 )

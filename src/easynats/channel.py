@@ -66,6 +66,10 @@ class Event(Generic[ParamsT, MessageT]):
         Returns:
             The encoded event data as bytes.
         """
+        if message is None:
+            return b""
+        if isinstance(message, bytes):
+            return message
         return self._type_adapter.dump_json(message)
 
     def decode(self, data: bytes) -> MessageT:
@@ -84,6 +88,10 @@ class Event(Generic[ParamsT, MessageT]):
         Returns:
             The decoded event data as a python object.
         """
+        if self.message is type(None):
+            return None  # type: ignore
+        if isinstance(data, self.message):
+            return data
         return self._type_adapter.validate_json(data)
 
 
@@ -127,6 +135,10 @@ class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
         Returns:
             The encoded request data as bytes.
         """
+        if self.message is type(None):
+            return b""
+        if isinstance(message, bytes):
+            return message
         return self._request_type_adapter.dump_json(message)
 
     def decode_request(self, data: bytes) -> MessageT:
@@ -145,6 +157,10 @@ class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
         Returns:
             The decoded request data as a python object.
         """
+        if self.message is type(None):
+            return None  # type: ignore
+        if isinstance(data, self.message):
+            return data
         return self._request_type_adapter.validate_json(data)
 
     def encode_reply(self, reply: ReplyT) -> bytes:
@@ -163,6 +179,10 @@ class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
         Returns:
             The encoded reply data as bytes.
         """
+        if self.reply is type(None):
+            return b""
+        if isinstance(reply, bytes):
+            return reply
         return self._reply_type_adapter.dump_json(reply)
 
     def decode_reply(self, data: bytes) -> ReplyT:
@@ -184,6 +204,10 @@ class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
         Returns:
             The decoded reply data as a python object.
         """
+        if self.reply is type(None):
+            return None  # type: ignore
+        if isinstance(data, self.reply):
+            return data
         return self._reply_type_adapter.validate_json(data)
 
     def encode_error(self, error: ErrorT) -> bytes:
@@ -205,6 +229,10 @@ class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
         Returns:
             The encoded error data as bytes.
         """
+        if self.error is type(None):
+            return b""
+        if isinstance(error, bytes):
+            return error
         return self._error_type_adapter.dump_json(error)
 
     def decode_error(self, data: bytes) -> ErrorT:
@@ -226,6 +254,10 @@ class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
         Returns:
             The decoded reply data as a python object.
         """
+        if self.error is type(None):
+            return None  # type: ignore
+        if isinstance(data, self.error):
+            return data
         return self._error_type_adapter.validate_json(data)
 
     def is_success(self, reply: Reply) -> bool:

@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TypeVar
+
+T = TypeVar("T")
 
 
 @dataclass
@@ -64,7 +66,7 @@ class Placement:
     Placement directives to consider when placing replicas of this stream, random placement when unset
     """
 
-    cluster: str
+    cluster: Optional[str] = None
     """
     The desired cluster name to place the stream
     """
@@ -252,7 +254,7 @@ class StreamConfig:
     """
     When a Stream reach it's limits either old messages are deleted or new ones are denied
     """
-    duplicate_window: Optional[int] = 0
+    duplicate_window: Optional[int] = None
     """
     The time window to track duplicate messages for, expressed in nanoseconds. 0 for default
     """
@@ -304,3 +306,74 @@ class StreamConfig:
     """
     Additional metadata for the Stream
     """
+
+    @classmethod
+    def new(
+        cls,
+        name: str,
+        subjects: Optional[List[str]] = None,
+        retention: Optional[Retention] = None,
+        max_consumers: Optional[int] = None,
+        max_msgs: Optional[int] = None,
+        max_bytes: Optional[int] = None,
+        max_age: Optional[int] = None,
+        storage: Optional[Storage] = None,
+        num_replicas: Optional[int] = None,
+        duplicate_window: Optional[int] = None,
+        description: Optional[str] = None,
+        subject_transform: Optional[SubjectTransform] = None,
+        max_msgs_per_subject: Optional[int] = None,
+        max_msg_size: Optional[int] = None,
+        compression: Optional[Compression] = None,
+        first_seq: Optional[int] = None,
+        no_ack: Optional[bool] = None,
+        discard: Optional[Discard] = None,
+        placement: Optional[Placement] = None,
+        mirror: Optional[Mirror] = None,
+        sources: Optional[List[Source]] = None,
+        sealed: Optional[bool] = None,
+        deny_delete: Optional[bool] = None,
+        deny_purge: Optional[bool] = None,
+        allow_rollup_hdrs: Optional[bool] = None,
+        allow_direct: Optional[bool] = None,
+        mirror_direct: Optional[bool] = None,
+        republish: Optional[Republish] = None,
+        discard_new_per_subject: Optional[bool] = None,
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> "StreamConfig":
+        return cls(
+            name=name,
+            max_consumers=_get_or(max_consumers, -1),
+            max_msgs=_get_or(max_msgs, -1),
+            max_bytes=_get_or(max_bytes, -1),
+            max_age=_get_or(max_age, 0),
+            storage=_get_or(storage, Storage.file),
+            retention=_get_or(retention, Retention.limits),
+            num_replicas=_get_or(num_replicas, 1),
+            duplicate_window=_get_or(duplicate_window, 120000000000),
+            subjects=subjects,
+            description=description,
+            subject_transform=subject_transform,
+            max_msgs_per_subject=_get_or(max_msgs_per_subject, -1),
+            max_msg_size=_get_or(max_msg_size, -1),
+            compression=_get_or(compression, Compression.none),
+            first_seq=first_seq,
+            no_ack=_get_or(no_ack, False),
+            discard=_get_or(discard, Discard.old),
+            placement=placement,
+            mirror=mirror,
+            sources=sources,
+            sealed=_get_or(sealed, False),
+            deny_delete=_get_or(deny_delete, False),
+            deny_purge=_get_or(deny_purge, False),
+            allow_rollup_hdrs=_get_or(allow_rollup_hdrs, False),
+            allow_direct=_get_or(allow_direct, False),
+            mirror_direct=_get_or(mirror_direct, False),
+            republish=republish,
+            discard_new_per_subject=_get_or(discard_new_per_subject, False),
+            metadata=metadata,
+        )
+
+
+def _get_or(value: Optional[T], default: T) -> T:
+    return default if value is None else value

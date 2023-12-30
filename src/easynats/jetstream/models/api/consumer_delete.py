@@ -42,5 +42,5 @@ DELETE_CONSUMER = Command(
     ),
     message=type(None),
     reply=JetstreamApiV1ConsumerDeleteResponse,
-    error=str,
+    error=bytes,
 )

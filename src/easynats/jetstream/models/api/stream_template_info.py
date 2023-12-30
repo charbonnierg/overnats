@@ -48,5 +48,5 @@ GET_STREAM_TEMPLATE_INFO = Command(
     ),
     message=type(None),
     reply=JetStreamApiV1StreamTemplateInfoResponse,
-    error=str,
+    error=bytes,
 )

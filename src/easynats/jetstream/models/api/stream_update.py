@@ -73,5 +73,5 @@ UPDATE_STREAM = Command(
     ),
     message=JetstreamApiV1StreamUpdateRequest,
     reply=JetstreamApiV1StreamUpdateResponse,
-    error=str,
+    error=bytes,
 )

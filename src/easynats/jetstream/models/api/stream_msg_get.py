@@ -112,7 +112,7 @@ GET_STREAM_MSG = Command(
     ),
     message=JetStreamApiV1StreamMsgGetRequest,
     reply=JetStreamApiV1StreamMsgGetResponse,
-    error=str,
+    error=bytes,
 )
 
 
@@ -123,7 +123,7 @@ DIRECT_GET_STREAM_MSG = Command(
     ),
     message=JetStreamApiV1StreamMsgGetRequest,
     reply=bytes,
-    error=str,
+    error=bytes,
 )
 
 
@@ -134,5 +134,5 @@ DIRECT_GET_STREAM_LAST_MSG_FOR_SUBJECT = Command(
     ),
     message=type(None),
     reply=bytes,
-    error=str,
+    error=bytes,
 )

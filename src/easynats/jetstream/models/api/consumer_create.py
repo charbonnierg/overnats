@@ -145,7 +145,7 @@ CREATE_EPHEMERAL_CONSUMER = Command(
     ),
     message=JetstreamApiV1ConsumerCreateRequest,
     reply=JetstreamApiV1ConsumerCreateResponse,
-    error=str,
+    error=bytes,
 )
 
 CREATE_DURABLE_CONSUMER = Command(
@@ -155,7 +155,7 @@ CREATE_DURABLE_CONSUMER = Command(
     ),
     message=JetstreamApiV1ConsumerCreateRequest,
     reply=JetstreamApiV1ConsumerCreateResponse,
-    error=str,
+    error=bytes,
 )
 
 CREATE_FILTERED_DURABLE_CONSUMER = Command(
@@ -165,5 +165,5 @@ CREATE_FILTERED_DURABLE_CONSUMER = Command(
     ),
     message=JetstreamApiV1ConsumerCreateRequest,
     reply=JetstreamApiV1ConsumerCreateResponse,
-    error=str,
+    error=bytes,
 )

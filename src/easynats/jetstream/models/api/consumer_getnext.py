@@ -53,5 +53,5 @@ GET_CONSUMER_NEXT_MSG = Command(
     ),
     message=JetStreamApiV1ConsumerGetnextRequest,
     reply=bytes,
-    error=str,
+    error=bytes,
 )

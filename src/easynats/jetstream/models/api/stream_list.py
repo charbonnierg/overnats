@@ -44,5 +44,5 @@ LIST_STREAMS = Command(
     ),
     message=JetstreamApiV1StreamListRequest,
     reply=JetstreamApiV1StreamListResponse,
-    error=str,
+    error=bytes,
 )

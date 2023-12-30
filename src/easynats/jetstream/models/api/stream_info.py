@@ -77,5 +77,5 @@ GET_STREAM_INFO = Command(
     ),
     message=JetStreamApiV1StreamInfoRequest,
     reply=JetstreamApiV1StreamInfoResponse,
-    error=str,
+    error=bytes,
 )

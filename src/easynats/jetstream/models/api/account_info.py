@@ -119,5 +119,5 @@ GET_ACCOUNT_INFO = Command(
     ),
     message=type(None),
     reply=JetstreamApiV1AccountInfoResponse,
-    error=str,
+    error=bytes,
 )

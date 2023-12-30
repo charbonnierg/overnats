@@ -69,5 +69,5 @@ SNAPSHOT_STREAM = Command(
     ),
     message=JetStreamApiV1StreamSnapshotRequest,
     reply=JetStreamApiV1StreamSnapshotResponse,
-    error=str,
+    error=bytes,
 )

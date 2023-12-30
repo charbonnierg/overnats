@@ -42,5 +42,5 @@ LIST_STREAM_NAMES = Command(
     ),
     message=JetstreamApiV1StreamNamesRequest,
     reply=JetstreamApiV1StreamNamesResponse,
-    error=str,
+    error=bytes,
 )
