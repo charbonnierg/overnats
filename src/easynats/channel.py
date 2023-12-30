@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
+
+from pydantic.type_adapter import TypeAdapter
 
 from .address import Address
 
@@ -47,6 +48,7 @@ class Event(Generic[ParamsT, MessageT]):
         """
         self.channel = channel
         self.message = message
+        self._type_adapter = TypeAdapter(message)
 
     def encode(self, message: MessageT) -> bytes:
         """Encode event data into bytes.
@@ -64,7 +66,7 @@ class Event(Generic[ParamsT, MessageT]):
         Returns:
             The encoded event data as bytes.
         """
-        return json.dumps(message).encode()
+        return self._type_adapter.dump_json(message)
 
     def decode(self, data: bytes) -> MessageT:
         """Decode event data from bytes.
@@ -82,7 +84,7 @@ class Event(Generic[ParamsT, MessageT]):
         Returns:
             The decoded event data as a python object.
         """
-        return self.message(**json.loads(data))
+        return self._type_adapter.validate_json(data)
 
 
 class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
@@ -105,6 +107,9 @@ class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
         self.message = message
         self.reply = reply
         self.error = error
+        self._request_type_adapter = TypeAdapter(message)
+        self._reply_type_adapter = TypeAdapter(reply)
+        self._error_type_adapter = TypeAdapter(error)
 
     def encode_request(self, message: MessageT) -> bytes:
         """Encode request data into bytes.
@@ -122,7 +127,7 @@ class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
         Returns:
             The encoded request data as bytes.
         """
-        return json.dumps(message).encode()
+        return self._request_type_adapter.dump_json(message)
 
     def decode_request(self, data: bytes) -> MessageT:
         """Decode request data from bytes.
@@ -140,7 +145,7 @@ class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
         Returns:
             The decoded request data as a python object.
         """
-        return self.message(**json.loads(data))
+        return self._request_type_adapter.validate_json(data)
 
     def encode_reply(self, reply: ReplyT) -> bytes:
         """Encode reply data into bytes.
@@ -158,7 +163,7 @@ class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
         Returns:
             The encoded reply data as bytes.
         """
-        return json.dumps(reply).encode()
+        return self._reply_type_adapter.dump_json(reply)
 
     def decode_reply(self, data: bytes) -> ReplyT:
         """Decode reply data from bytes.
@@ -179,7 +184,7 @@ class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
         Returns:
             The decoded reply data as a python object.
         """
-        return self.reply(**json.loads(data))
+        return self._reply_type_adapter.validate_json(data)
 
     def encode_error(self, error: ErrorT) -> bytes:
         """Encode error data into bytes.
@@ -200,7 +205,7 @@ class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
         Returns:
             The encoded error data as bytes.
         """
-        return json.dumps(error).encode()
+        return self._error_type_adapter.dump_json(error)
 
     def decode_error(self, data: bytes) -> ErrorT:
         """Decode error data from bytes.
@@ -221,7 +226,7 @@ class Command(Generic[ParamsT, MessageT, ReplyT, ErrorT]):
         Returns:
             The decoded reply data as a python object.
         """
-        return self.error(**json.loads(data))
+        return self._error_type_adapter.validate_json(data)
 
     def is_success(self, reply: Reply) -> bool:
         """Returns True if headers indicate a success else False.

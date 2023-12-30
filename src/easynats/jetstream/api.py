@@ -7,13 +7,13 @@ from typing import Any, NoReturn, TypeVar
 from typing_extensions import Literal
 
 from ..connection import NatsConnection, TypedReply
-from ..models.jetstream.api.account_info import GET_ACCOUNT_INFO, AccountInfoResponse
-from ..models.jetstream.api.account_purge import PURGE_ACCOUNT, AccountPurgeResponse
-from ..models.jetstream.api.api_error import Error, JetStreamApiV1Error
-from ..models.jetstream.api.common.consumer_configuration import ConsumerConfig
-from ..models.jetstream.api.common.stream_configuration import StreamConfiguration
-from ..models.jetstream.api.common.stream_state import StreamState
-from ..models.jetstream.api.consumer_create import (
+from .models.api.account_info import GET_ACCOUNT_INFO, AccountInfoResponse
+from .models.api.account_purge import PURGE_ACCOUNT, AccountPurgeResponse
+from .models.api.api_error import Error, JetStreamApiV1Error
+from .models.api.common.consumer_configuration import ConsumerConfig
+from .models.api.common.stream_configuration import StreamConfig
+from .models.api.common.stream_state import StreamState
+from .models.api.consumer_create import (
     CREATE_DURABLE_CONSUMER,
     CREATE_EPHEMERAL_CONSUMER,
     CREATE_FILTERED_DURABLE_CONSUMER,
@@ -23,85 +23,82 @@ from ..models.jetstream.api.consumer_create import (
     JetstreamApiV1ConsumerDurableCreateParams,
     JetstreamApiV1ConsumerFilteredDurableCreateParams,
 )
-from ..models.jetstream.api.consumer_delete import (
+from .models.api.consumer_delete import (
     DELETE_CONSUMER,
     ConsumerDeleteResponse,
     JetStreamApiV1ConsumerDeleteParams,
 )
-from ..models.jetstream.api.consumer_getnext import (
+from .models.api.consumer_getnext import (
     GET_CONSUMER_NEXT_MSG,
     JetStreamApiV1ConsumerGetnextParams,
     JetStreamApiV1ConsumerGetnextRequest,
 )
-from ..models.jetstream.api.consumer_info import (
+from .models.api.consumer_info import (
     GET_CONSUMER_INFO,
     ConsumerInfoResponse,
     JetStreamApiV1ConsumerInfoParams,
 )
-from ..models.jetstream.api.consumer_leader_stepdown import (
+from .models.api.consumer_leader_stepdown import (
     STEPDOWN_CONSUMER_LEADER,
     ConsumerLeaderStepdownResponse,
     JetStreamApiV1ConsumerLeaderStepdownParams,
 )
-from ..models.jetstream.api.consumer_list import (
+from .models.api.consumer_list import (
     LIST_CONSUMERS,
     ConsumerListResponse,
     JetStreamApiV1ConsumerListParams,
     JetstreamApiV1ConsumerListRequest,
 )
-from ..models.jetstream.api.consumer_names import (
+from .models.api.consumer_names import (
     LIST_CONSUMER_NAMES,
     ConsumerNamesResponse,
     JetStreamApiV1ConsumerNamesParams,
     JetstreamApiV1ConsumerNamesRequest,
 )
-from ..models.jetstream.api.meta_leader_stepdown import (
+from .models.api.meta_leader_stepdown import (
     STEPDOWN_LEADER,
     JetstreamApiV1MetaLeaderStepdownRequest,
     MetaLeaderStepdownResponse,
 )
-from ..models.jetstream.api.meta_server_remove import (
+from .models.api.meta_server_remove import (
     REMOVE_SERVER,
     JetstreamApiV1MetaServerRemoveRequest,
     MetaServerRemoveResponse,
 )
-from ..models.jetstream.api.pub_ack_response import (
-    JetstreamApiV1PubAckResponse,
-    PubAckResponse,
-)
-from ..models.jetstream.api.stream_create import (
+from .models.api.pub_ack_response import JetstreamApiV1PubAckResponse, PubAckResponse
+from .models.api.stream_create import (
     CREATE_STREAM,
     JetstreamApiV1StreamCreateParams,
     StreamCreateResponse,
 )
-from ..models.jetstream.api.stream_delete import (
+from .models.api.stream_delete import (
     DELETE_STREAM,
     JetStreamApiV1StreamDeleteParams,
     StreamDeleteResponse,
 )
-from ..models.jetstream.api.stream_info import (
+from .models.api.stream_info import (
     GET_STREAM_INFO,
     JetStreamApiV1StreamInfoParams,
     JetStreamApiV1StreamInfoRequest,
     StreamInfoResponse,
 )
-from ..models.jetstream.api.stream_leader_stepdown import (
+from .models.api.stream_leader_stepdown import (
     STEPDOWN_STREAM_LEADER,
     JetStreamApiV1StreamLeaderStepdownParams,
     StreamLeaderStepdownResponse,
 )
-from ..models.jetstream.api.stream_list import (
+from .models.api.stream_list import (
     LIST_STREAMS,
     JetstreamApiV1StreamListRequest,
     StreamListResponse,
 )
-from ..models.jetstream.api.stream_msg_delete import (
+from .models.api.stream_msg_delete import (
     DELETE_STREAM_MSG,
     JetStreamApiV1StreamMsgDeleteParams,
     JetStreamApiV1StreamMsgDeleteRequest,
     StreamMsgDeleteResponse,
 )
-from ..models.jetstream.api.stream_msg_get import (
+from .models.api.stream_msg_get import (
     DIRECT_GET_STREAM_LAST_MSG_FOR_SUBJECT,
     DIRECT_GET_STREAM_MSG,
     GET_STREAM_MSG,
@@ -111,57 +108,57 @@ from ..models.jetstream.api.stream_msg_get import (
     JetStreamApiV1StreamMsgGetRequest,
     StreamMsgGetResponse,
 )
-from ..models.jetstream.api.stream_names import (
+from .models.api.stream_names import (
     LIST_STREAM_NAMES,
     JetstreamApiV1StreamNamesRequest,
     StreamNamesResponse,
 )
-from ..models.jetstream.api.stream_purge import (
+from .models.api.stream_purge import (
     PURGE_STREAM,
     JetStreamApiV1StreamPurgeParams,
     JetStreamApiV1StreamPurgeRequest,
     StreamPurgeResponse,
 )
-from ..models.jetstream.api.stream_remove_peer import (
+from .models.api.stream_remove_peer import (
     STREAM_PEER_REMOVE,
     JetStreamApiV1StreamRemovePeerParams,
     JetStreamApiV1StreamRemovePeerRequest,
     StreamRemovePeerResponse,
 )
-from ..models.jetstream.api.stream_restore import (
+from .models.api.stream_restore import (
     RESTORE_STREAM,
     JetStreamApiV1StreamRestoreParams,
     JetStreamApiV1StreamRestoreRequest,
     StreamRestoreResponse,
 )
-from ..models.jetstream.api.stream_snapshot import (
+from .models.api.stream_snapshot import (
     SNAPSHOT_STREAM,
     JetStreamApiV1StreamSnapshotParams,
     JetStreamApiV1StreamSnapshotRequest,
     StreamSnapshotResponse,
 )
-from ..models.jetstream.api.stream_template_create import (
+from .models.api.stream_template_create import (
     CREATE_STREAM_TEMPLATE,
     JetStreamApiV1StreamTemplateCreateParams,
     JetStreamApiV1StreamTemplateCreateRequest,
     StreamTemplateCreateResponse,
 )
-from ..models.jetstream.api.stream_template_delete import (
+from .models.api.stream_template_delete import (
     DELETE_STREAM_TEMPLATE,
     JetStreamApiV1StreamTemplateDeleteParams,
     StreamTemplateDeleteResponse,
 )
-from ..models.jetstream.api.stream_template_info import (
+from .models.api.stream_template_info import (
     GET_STREAM_TEMPLATE_INFO,
     JetStreamApiV1StreamTemplateInfoParams,
     StreamTemplateInfoResponse,
 )
-from ..models.jetstream.api.stream_template_names import (
+from .models.api.stream_template_names import (
     LIST_STREAM_TEMPLATE_NAMES,
     JetStreamApiV1StreamTemplateNamesRequest,
     StreamTemplateNamesResponse,
 )
-from ..models.jetstream.api.stream_update_response import (
+from .models.api.stream_update import (
     UPDATE_STREAM,
     JetStreamApiV1StreamUpdateParams,
     StreamUpdateResponse,
@@ -302,7 +299,7 @@ class JetStreamClient:
     async def create_stream_template(
         self,
         template_name: str,
-        stream_config: StreamConfiguration,
+        stream_config: StreamConfig,
         max_streams: int | None = None,
     ) -> StreamTemplateCreateResponse:
         """Create a new stream template.
@@ -514,9 +511,7 @@ class JetStreamClient:
         )
         return self._unwrap_reply(reply)
 
-    async def create_stream(
-        self, stream_config: StreamConfiguration
-    ) -> StreamCreateResponse:
+    async def create_stream(self, stream_config: StreamConfig) -> StreamCreateResponse:
         """Create a stream.
 
         Args:
@@ -538,9 +533,7 @@ class JetStreamClient:
         )
         return self._unwrap_reply(reply)
 
-    async def update_stream(
-        self, stream_config: StreamConfiguration
-    ) -> StreamUpdateResponse:
+    async def update_stream(self, stream_config: StreamConfig) -> StreamUpdateResponse:
         """Update a stream.
 
         Args:
@@ -635,7 +628,7 @@ class JetStreamClient:
     async def restore_stream(
         self,
         stream_name: str,
-        stream_config: StreamConfiguration,
+        stream_config: StreamConfig,
         stream_state: StreamState,
     ) -> StreamRestoreResponse:
         """Request a stream restore.
@@ -1254,7 +1247,7 @@ class Stream:
 
     async def update(
         self,
-        stream_config: StreamConfiguration,
+        stream_config: StreamConfig,
     ) -> None:
         """Update the stream.
 
