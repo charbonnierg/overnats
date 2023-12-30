@@ -13,24 +13,23 @@ from .common.stream_state import Alternate, Cluster, Mirror, Source, StreamState
 
 
 @dataclass
-class JetStreamApiV1StreamUpdateParams:
-    """
-    Paramsfor the JetStream $JS.API.STREAM.UPDATE API
-    """
-
+class JetstreamApiV1StreamCreateParams:
     stream_name: str
     """
-    The name of the stream to update
+    The name of the stream to create
     """
 
 
-JetstreamApiV1StreamUpdateRequest = StreamConfiguration
+JetstreamApiV1StreamCreateRequest = StreamConfiguration
+"""
+A request to the JetStream $JS.API.STREAM.CREATE API
+"""
 
 
 @dataclass
-class StreamUpdateResponse:
+class StreamCreateResponse:
     """
-    A response from the JetStream $JS.API.STREAM.UPDATE API
+    A response from the JetStream $JS.API.STREAM.CREATE API
     """
 
     type: str
@@ -65,15 +64,15 @@ class StreamUpdateResponse:
     """
 
 
-JetstreamApiV1StreamUpdateResponse = Union[StreamUpdateResponse, JetStreamApiV1Error]
+JetstreamApiV1StreamCreateResponse = Union[StreamCreateResponse, JetStreamApiV1Error]
 
 
-UPDATE_STREAM = Command(
+CREATE_STREAM = Command(
     channel=Channel(
-        subject="STREAM.UPDATE.{stream_name}",
-        parameters=JetStreamApiV1StreamUpdateParams,
+        subject="STREAM.CREATE.{stream_name}",
+        parameters=JetstreamApiV1StreamCreateParams,
     ),
-    message=JetstreamApiV1StreamUpdateRequest,
-    reply=JetstreamApiV1StreamUpdateResponse,
+    message=JetstreamApiV1StreamCreateRequest,
+    reply=JetstreamApiV1StreamCreateResponse,
     error=str,
 )

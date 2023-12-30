@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field, fields, is_dataclass
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar, overload
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -23,28 +23,102 @@ def _get_fields(obj: object) -> list[str]:
     raise TypeError(f"Cannot get fields of object: {obj} ({type(obj)})")
 
 
-@dataclass
+def new_address(subject: str) -> Address[None]:
+    """Create a new address without parameter.
+
+    Args:
+        subject: The subject filter.
+
+    Returns:
+        A new address.
+    """
+    return Address(subject)
+
+
+def new_address_with_params(
+    subject: str, parameters: type[ParamsT]
+) -> Address[ParamsT]:
+    """Create a new address with parameters.
+
+    Args:
+        subject: The subject filter.
+        parameters: The parameters expected to be found on each valid subject matching subject filter.
+            Parameters must be a dataclass or a class with a `__fields__` attribute such as `pydantic.BaseModel`.
+
+    Returns:
+        A new address.
+    """
+    return Address(subject, parameters)
+
+
 class Address(Generic[ParamsT]):
-    """Address for a channel."""
+    """Address for a channel.
+
+    An address is represented as a string and is generic over a set of parameters.
+    `ParamsT` is the type of the parameters expected to be found on each valid subject matching subject filter.
+    Parameters (`ParamsT`) must be a dataclass or a class with a `__fields__` attribute such as `pydantic.BaseModel`.
+
+    The string representation of the address can contain placeholders for parameters:
+
+    - `{param}`: Matches any value for parameter `param`
+    - `{param...}`: Matches any remaining values for parameter `param`. This can only be used once, and must be the last parameter.
+
+    An example address is `foo.{bar}.baz.{qux...}`.
+
+    The associated parameters could be:
+
+    ```python
+    @dataclass
+    class Params:
+        bar: str
+        qux: list[str]
+
+    address = Address("foo.{bar}.baz.{qux...}", Params)
+    ```
+
+    Such address would match `foo.abc.baz.123.456.789` and would extract the following parameters:
+
+    ```python
+    address.get_params("foo.abc.baz.123.456.789") == Params(
+        bar="abc",
+        qux=["123", "456", "789"],
+    )
+    ```
+    """
 
     subject: str
-    """The subject filter."""
-
     parameters: type[ParamsT]
-    """The parameters expected to be found on each valid subject matching subject filter."""
 
-    placeholders: Placeholders[ParamsT] = field(init=False)
-    """The placeholders within the subject filter. Should not be used by users as it is an internal field."""
+    @overload
+    def __init__(self: Address[None], subject: str) -> None:
+        """Create a new address without parameter.
 
-    def __post_init__(self) -> None:
-        """Verify that the subject filter is valid and that the parameters are correct."""
-        self.placeholders = Placeholders.from_subject(self.subject, self.parameters)
+        Args:
+            subject: The subject filter.
+        """
+
+    @overload
+    def __init__(self, subject: str, parameters: type[ParamsT]) -> None:
+        """Create a new address.
+
+        Args:
+            subject: The subject filter.
+            parameters: The parameters expected to be found on each valid subject matching subject filter.
+                Parameters must be a dataclass or a class with a `__fields__` attribute such as `pydantic.BaseModel`.
+        """
+
+    def __init__(self, subject: str, parameters: Any = None) -> None:
+        self.subject = subject
+        self.parameters = parameters
+        self.placeholders = Placeholders.from_subject(subject, parameters)
         self._verify()
 
     def __str__(self) -> str:
         return self.subject
 
     def __repr__(self) -> str:
+        if self.parameters:
+            return f"Address({self.subject}, parameters={self.parameters.__name__})"
         return f"Address({self.subject})"
 
     def _verify(self) -> None:
@@ -74,11 +148,26 @@ class Address(Generic[ParamsT]):
         ):
             raise ValueError(f"Unknown parameter: '{self.placeholders.wildcard}'")
 
-    def decode_subject(self, subject: str) -> ParamsT:
+    def get_params(self, subject: str) -> ParamsT:
+        """Extract parameters from subject.
+
+        Args:
+            subject: The subject to extract parameters from.
+
+        Returns:
+            The extracted parameters.
+        """
         return self.placeholders.extract_parameters(subject)
 
-    def encode_subject(self, parameters: ParamsT) -> str:
-        """Encode parameters into subject."""
+    def get_subject(self, parameters: ParamsT | None = None) -> str:
+        """Get a valid NATS subject for given parameters.
+
+        Args:
+            parameters: The parameters to use. If not provided, wildcards will be used for all parameters.
+
+        Returns:
+            A valid NATS subject.
+        """
         if parameters is None:
             return self.placeholders.subject
         tokens = self.placeholders.subject.split(".")
@@ -92,10 +181,6 @@ class Address(Generic[ParamsT]):
                 tokens.append(value)
         return ".".join(tokens)
 
-    def get_filter_subject(self) -> str:
-        """Get the subject filter."""
-        return self.placeholders.subject
-
 
 class Syntax:
     match_all: str = ">"
@@ -105,11 +190,6 @@ class Syntax:
 
 @dataclass
 class Placeholders(Generic[ParamsT]):
-    """A placeholder is the combination of the position and the type of a parameter that is part of the subject filter.
-
-    The .from_subject() method should always be used to create a new placeholder.
-    """
-
     typ: type[ParamsT]
     subject: str
     mapping: dict[str, int] = field(default_factory=dict)
@@ -119,7 +199,6 @@ class Placeholders(Generic[ParamsT]):
         return f"Placeholders({self.mapping}, wildcard={self.wildcard})"
 
     def extract_parameters(self, subject: str) -> ParamsT:
-        """Extract parameters from a subject."""
         kwargs = {}
         tokens = subject.split(".")
         for name, pos in self.mapping.items():

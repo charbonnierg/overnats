@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class IoNatsJetstreamMetricV1ConsumerAck:
+class JetstreamMetricV1ConsumerAck:
     """
     Metric published when a message was acknowledged to a consumer with Ack Sampling enabled
     """

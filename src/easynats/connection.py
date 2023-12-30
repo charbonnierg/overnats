@@ -13,12 +13,13 @@ from __future__ import annotations
 
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, replace
-from typing import TypeVar
+from typing import Any, Generic, TypeVar
 
 from nats.aio.client import Client as NatsClient
 from typing_extensions import Self
 
 from . import micro
+from .channel import Command, ErrorT, Event, MessageT, ParamsT, ReplyT
 from .options import ConnectOption, ConnectOpts, JetStreamOpts, MicroOpts
 
 T = TypeVar("T")
@@ -36,6 +37,56 @@ class Reply:
     """The reply data."""
     headers: dict[str, str]
     """The reply headers."""
+
+
+@dataclass
+class TypedReply(Generic[ParamsT, ReplyT, ErrorT]):
+    """The reply of request."""
+
+    success: bool
+    """Whether the reply is a success or an error."""
+    payload: ReplyT | ErrorT
+    """The reply data."""
+    headers: dict[str, str]
+    """The reply headers."""
+
+    def get_error(self) -> ErrorT | None:
+        """Get the error payload or None if reply is a success."""
+        if self.success:
+            return self.payload  # type: ignore
+
+    def get_data(self) -> ReplyT | None:
+        """Get the data payload or None if reply is an error."""
+        if self.success:
+            return self.payload  # type: ignore
+
+    def error(self) -> ErrorT:
+        """Get the error payload or raise an exception if reply is a success."""
+        if self.success:
+            raise RuntimeError("Reply is not an error")
+        return self.payload  # type: ignore
+
+    def data(self) -> ReplyT:
+        """Get the data payload or raise an exception if reply is an error."""
+        if not self.success:
+            raise RuntimeError("Reply is not a success")
+        return self.payload  # type: ignore
+
+    @classmethod
+    def create(
+        cls, command: Command[ParamsT, Any, ReplyT, ErrorT], reply: Reply
+    ) -> TypedReply[ParamsT, ReplyT, ErrorT]:
+        """Create a typed reply from a command and a reply."""
+        success = command.is_success(reply)
+        if success:
+            reply_data = command.decode_reply(reply.payload)
+        else:
+            reply_data = command.decode_error(reply.payload)
+        return cls(
+            success=success,
+            payload=reply_data,
+            headers=reply.headers,
+        )
 
 
 class NatsConnection:
@@ -148,6 +199,16 @@ class NatsConnection:
         """
         return MicroConnection(self, options)
 
+    def typed(self) -> TypedConnection:
+        """Create a new typed connection on top of this NATS connection.
+
+        A [`TypedConnection`][easynats.connection.TypedConnection] provides methods for publishing and requesting typed messages.
+
+        Returns:
+            A new typed connection.
+        """
+        return TypedConnection(self)
+
     async def open(self) -> None:
         """Open the connection to the NATS server.
 
@@ -208,6 +269,7 @@ class NatsConnection:
         subject: str,
         payload: bytes | None = None,
         headers: dict[str, str] | None = None,
+        timeout: float | None = None,
     ) -> Reply:
         """Send a request and wait for a reply.
 
@@ -226,7 +288,9 @@ class NatsConnection:
         Returns:
             The reply with optional data and headers.
         """
-        msg = await self.client.request(subject, payload or b"", headers=headers)
+        msg = await self.client.request(
+            subject, payload or b"", headers=headers, timeout=timeout or float("inf")
+        )
         return Reply(msg.reply, msg.subject, msg.data, msg.headers or {})
 
     async def publish_request(
@@ -266,6 +330,113 @@ class NatsConnection:
 
     async def __aexit__(self, *args: object, **kwargs: object) -> None:
         await self.close()
+
+
+class TypedConnection:
+    """A [`TypedConnection][easynats.connection.TypedConnection]
+    can be used to publish or request typed messages over channels
+    rather than simple subjects.
+
+    Checkout the [channel][easynats.channel] module to learn more
+    about typed connection usage.
+    """
+
+    def __init__(self, connection: NatsConnection) -> None:
+        self.connection = connection
+
+    async def publish_event(
+        self,
+        event_type: Event[ParamsT, MessageT],
+        params: ParamsT,
+        payload: MessageT,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        """Publish an event.
+
+        Args:
+            event_type: The event type.
+            params: The parameters for the event.
+            payload: The event payload.
+            headers: The event headers.
+
+        Raises:
+            RuntimeError: If the connection is not opened.
+
+        Returns:
+            None. The message is published asynchronously, and it is possible that message is never published in some cases.
+        """
+        await self.connection.publish(
+            subject=event_type.channel.address.get_subject(params),
+            payload=event_type.encode(payload),
+            headers=headers,
+        )
+
+    async def publish_command(
+        self,
+        command_type: Command[ParamsT, MessageT, Any, Any],
+        reply_subject: str,
+        params: ParamsT,
+        payload: MessageT,
+        headers: dict[str, str] | None = None,
+        prefix: str | None = None,
+    ) -> None:
+        """Publish a command.
+
+        Args:
+            command_type: The command type.
+            reply_subject: The subject to use for the reply. The receiver of the command will send the reply to this subject.
+            params: The parameters for the command.
+            payload: The command payload.
+            headers: The command headers.
+
+        Raises:
+            RuntimeError: If the connection is not opened.
+
+        Returns:
+            None. The message is published asynchronously, and it is possible that message is never published in some cases.
+        """
+        subject = command_type.channel.address.get_subject(params)
+        if prefix is not None:
+            subject = prefix + subject
+        await self.connection.publish_request(
+            subject=subject,
+            reply_subject=reply_subject,
+            payload=command_type.encode_request(payload),
+            headers=headers,
+        )
+
+    async def request_command(
+        self,
+        command_type: Command[ParamsT, MessageT, ReplyT, ErrorT],
+        params: ParamsT,
+        payload: MessageT,
+        headers: dict[str, str] | None = None,
+        prefix: str | None = None,
+    ) -> TypedReply[ParamsT, ReplyT, ErrorT]:
+        """Send a command and wait for a reply.
+
+        Args:
+            command_type: The command type.
+            params: The parameters for the command.
+            payload: The command payload.
+            headers: The command headers.
+
+        Raises:
+            RuntimeError: If the connection is not opened.
+            TimeoutError: If the request times out (if no reply is received within the timeout duration)
+
+        Returns:
+            The typed reply with optional headers.
+        """
+        subject = command_type.channel.address.get_subject(params)
+        if prefix is not None:
+            subject = prefix + subject
+        reply = await self.connection.request(
+            subject=subject,
+            payload=command_type.encode_request(payload),
+            headers=headers,
+        )
+        return TypedReply.create(command_type, reply)
 
 
 class MicroConnection:
