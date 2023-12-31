@@ -18,6 +18,9 @@ from typing import Any, Awaitable, Callable, Generic, TypeVar
 from nats.aio.client import Client as NatsClient
 from typing_extensions import Self
 
+from easynats.options.jetstream_opts import JetStreamOption
+from easynats.options.micro_opts import MicroOption
+
 from . import micro
 from .channel import Command, ErrorT, Event, MessageT, ParamsT, ReplyT
 from .core import Msg, Reply, SubscriptionHandler, SubscriptionIterator
@@ -127,7 +130,7 @@ class Connection:
             )
         conn = self.__class__(replace(self.options))
         for opt in option:
-            opt.apply(conn.options)
+            opt(conn.options)
         return conn
 
     @property
@@ -164,28 +167,58 @@ class Connection:
             raise RuntimeError("Connection not open")
         return self._stack_or_none
 
-    def jetstream(self, options: JetStreamOpts | None = None) -> JetStreamConnection:
+    def jetstream(
+        self,
+        options: JetStreamOpts | JetStreamOption | None = None,
+        *opts: JetStreamOption,
+    ) -> JetStreamConnection:
         """Create a new JetStream connection on top of this NATS connection.
 
         Args:
             options: JetStream options to use. If not provided, the default
                 options are used.
+            *opts: Additional JetStream options to use.
 
         Returns:
             A new NATS JetStream connection.
+
+        See also:
+            [`easynats.options.jetstream_opts`][easynats.options.jetstream_opts] for a list of available JetStream options.
         """
+        if isinstance(options, JetStreamOption):
+            opts = (options,) + opts
+            options = None
+        if options is None:
+            options = JetStreamOpts()
+        for opt in opts:
+            opt(options)
         return JetStreamConnection(self, options)
 
-    def micro(self, options: MicroOpts | None = None) -> MicroConnection:
+    def micro(
+        self,
+        options: MicroOpts | MicroOption | None = None,
+        *opts: MicroOption,
+    ) -> MicroConnection:
         """Create a new Micro connection on top of this NATS connection.
 
         Args:
             options: Micro options to use. If not provided, the default
                 options are used.
+            *opts: Additional Micro options to use.
 
         Returns:
             A new NATS Micro connection.
+
+        See also:
+            [`easynats.options.micro_opts`][easynats.options.micro_opts] for a list of available Micro options.
         """
+        if isinstance(options, MicroOption):
+            opts = (options,) + opts
+            options = None
+        if options is None:
+            options = MicroOpts()
+        for opt in opts:
+            opt(options)
         return MicroConnection(self, options)
 
     def typed(self) -> TypedConnection:
@@ -211,7 +244,7 @@ class Connection:
             raise RuntimeError("Connection already opened")
         self._stack_or_none = AsyncExitStack()
         self._nats_client_or_none = NatsClient()
-        await self.client.connect(**self.options.dict())
+        await self.client.connect(**self.options.to_dict())
         self._stack_or_none.push_async_callback(self.client.drain)
 
     async def close(self) -> None:
@@ -457,9 +490,28 @@ class TypedConnection:
 
 
 class MicroConnection:
+    """A high-level interface to NATS Micro."""
+
     def __init__(self, connection: Connection, opts: MicroOpts | None = None) -> None:
         self.options = opts or MicroOpts()
         self.connection = connection
+
+    def configure(self, *options: MicroOption) -> Self:
+        """Apply Micro options to a new `MicroConnection` instance.
+
+        Args:
+            options: Micro options to apply.
+
+        Returns:
+            A new `MicroConnection` instance with the Micro options applied.
+        """
+        opts = replace(self.options)
+        for opt in options:
+            opt(opts)
+        return self.__class__(
+            self.connection,
+            opts,
+        )
 
     def create_service(
         self,
@@ -468,6 +520,17 @@ class MicroConnection:
         description: str | None = None,
         metadata: dict[str, str] | None = None,
     ) -> micro.Service:
+        """Create a new micro service.
+
+        Args:
+            name: The service name.
+            version: The service version.
+            description: The service description.
+            metadata: The service metadata.
+
+        Returns:
+            The micro service.
+        """
         return micro.create_service(
             self.connection.client,
             name,
@@ -478,12 +541,12 @@ class MicroConnection:
         )
 
 
-class MonitoringConnection:
-    def __init__(self, connection: Connection) -> None:
-        self.connection = connection
-
-
 class JetStreamConnection:
+    """A high-level interface to JetStream."""
+
+    streams: StreamManager
+    """The [stream manager][easynats.jetstream.manager.StreamManager] which can be used to manage streams."""
+
     def __init__(
         self, connection: Connection, options: JetStreamOpts | None = None
     ) -> None:
@@ -493,3 +556,20 @@ class JetStreamConnection:
             self._connection, api_prefix=self.options.get_api_prefix()
         )
         self.streams = StreamManager(self._client)
+
+    def configure(self, *options: JetStreamOption) -> Self:
+        """Apply JetStream options to a new `JetStreamConnection` instance.
+
+        Args:
+            options: JetStream options to apply.
+
+        Returns:
+            A new `JetStreamConnection` instance with the JetStream options applied.
+        """
+        opts = replace(self.options)
+        for opt in options:
+            opt(opts)
+        return self.__class__(
+            self._connection,
+            opts,
+        )

@@ -8,6 +8,7 @@ from .connect_opts import (
     WithConnectTimeout,
     WithCredentialsFile,
     WithDeterministicServers,
+    WithDisallowReconnect,
     WithDisconnectedCallback,
     WithDrainTimeout,
     WithErrorCallback,
@@ -34,8 +35,19 @@ from .connect_opts import (
     WithUserPassword,
     WithVerboseLogging,
 )
-from .jetstream_opts import JetStreamOpts
-from .micro_opts import MicroOpts
+from .jetstream_opts import (
+    JetStreamOption,
+    JetStreamOpts,
+    WithJetStreamApiPrefix,
+    WithJetStreamDomain,
+    WithKeyValuePrefix,
+)
+from .micro_opts import (
+    MicroOption,
+    MicroOpts,
+    WithDefaultServiceQueue,
+    WithServiceApiPrefix,
+)
 
 __all__ = [
     # Options
@@ -44,14 +56,27 @@ __all__ = [
     "MicroOpts",
     # Interface
     "ConnectOption",
-    # Individual options
+    "JetStreamOption",
+    "MicroOption",
+    # Individual jetstream options
+    "WithJetStreamDomain",
+    "WithJetStreamApiPrefix",
+    "WithKeyValuePrefix",
+    # Individual micro options
+    "WithServiceApiPrefix",
+    "WithDefaultServiceQueue",
+    # Individual connect options
     "WithAllowReconnect",
     "WithCallbacks",
+    "WithConnectionClosedCallback",
     "WithConnectionName",
     "WithConnectTimeout",
     "WithCredentialsFile",
     "WithDeterministicServers",
+    "WithDisallowReconnect",
+    "WithDisconnectedCallback",
     "WithDrainTimeout",
+    "WithErrorCallback",
     "WithFlusher",
     "WithInboxPrefix",
     "WithNKeyFile",
@@ -59,16 +84,13 @@ __all__ = [
     "WithNKeySeed",
     "WithNKeySeedAndJwt",
     "WithNoEcho",
-    "WithConnectionClosedCallback",
-    "WithServerDiscoveredCallback",
-    "WithDisconnectedCallback",
-    "WithErrorCallback",
-    "WithReconnectedCallback",
     "WithPassword",
     "WithPedanticMode",
     "WithPendingQueue",
     "WithPingPong",
+    "WithReconnectedCallback",
     "WithServer",
+    "WithServerDiscoveredCallback",
     "WithServers",
     "WithSignatureCallback",
     "WithTLSCertificate",
