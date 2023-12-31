@@ -1,0 +1,66 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "nats-server@latest": {
+      "last_modified": "2023-12-13T22:54:10Z",
+      "resolved": "github:NixOS/nixpkgs/fd04bea4cbf76f86f244b9e2549fca066db8ddff#nats-server",
+      "source": "devbox-search",
+      "version": "2.10.7",
+      "systems": {
+        "aarch64-darwin": {
+          "store_path": "/nix/store/vkyxq6pscqjvnqbcfb1y7k2b5xwyrzsm-nats-server-2.10.7"
+        },
+        "aarch64-linux": {
+          "store_path": "/nix/store/l7053xpgd8kz4gjs5grmqh65vfzqcw3p-nats-server-2.10.7"
+        },
+        "x86_64-darwin": {
+          "store_path": "/nix/store/9kkdn2iqv9n9jygg60gydn7ba251hklb-nats-server-2.10.7"
+        },
+        "x86_64-linux": {
+          "store_path": "/nix/store/slx5m76qn4cdkz4h8snq4ii9cmsvrbzg-nats-server-2.10.7"
+        }
+      }
+    },
+    "natscli@latest": {
+      "last_modified": "2023-12-13T22:54:10Z",
+      "resolved": "github:NixOS/nixpkgs/fd04bea4cbf76f86f244b9e2549fca066db8ddff#natscli",
+      "source": "devbox-search",
+      "version": "0.1.1",
+      "systems": {
+        "aarch64-darwin": {
+          "store_path": "/nix/store/qhcki4q9k2frzyx0y8g8xy1m2kq1sr56-natscli-0.1.1"
+        },
+        "aarch64-linux": {
+          "store_path": "/nix/store/52w4mbhrqqrz2zaa6zp8mbbp8lqrxvhq-natscli-0.1.1"
+        },
+        "x86_64-darwin": {
+          "store_path": "/nix/store/i17a3pam935wi3zdaxsbjx7k27j9gs4r-natscli-0.1.1"
+        },
+        "x86_64-linux": {
+          "store_path": "/nix/store/96yab5966i12ydf1f3i15wqgams7s0az-natscli-0.1.1"
+        }
+      }
+    },
+    "python@3.10": {
+      "last_modified": "2023-12-13T22:54:10Z",
+      "plugin_version": "0.0.3",
+      "resolved": "github:NixOS/nixpkgs/fd04bea4cbf76f86f244b9e2549fca066db8ddff#python310",
+      "source": "devbox-search",
+      "version": "3.10.13",
+      "systems": {
+        "aarch64-darwin": {
+          "store_path": "/nix/store/h7q4cw3c5zhxp2syx3ycvsg99pjadlqv-python3-3.10.13"
+        },
+        "aarch64-linux": {
+          "store_path": "/nix/store/rk3qjml1gwnbg3s1qnn1kdwrv2lapb5b-python3-3.10.13"
+        },
+        "x86_64-darwin": {
+          "store_path": "/nix/store/zdnjnd6rvnn9xy5yqjgpqg7l8jczm65l-python3-3.10.13"
+        },
+        "x86_64-linux": {
+          "store_path": "/nix/store/l8d6q4y9cvp2d5qf2sxxj072668bfcjr-python3-3.10.13"
+        }
+      }
+    }
+  }
+}

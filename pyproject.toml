@@ -11,15 +11,22 @@ description = "NATS client library for Python"
 readme = "README.md"
 requires-python = ">=3.8,<4.0"
 classifiers = [
-    "Programming Language :: Python :: 3",
+    'Intended Audience :: Developers',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
     "License :: OSI Approved :: Apache Software License",
 ]
 dynamic = ["version"]
 dependencies = ["nats-py"]
 
 [project.optional-dependencies]
+build = ["pip-tools", "build", "wheel"]
 dev = [
-    "build",
     "black",
     "isort",
     "invoke",
@@ -28,9 +35,16 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
-    "pip-tools",
     "trustme",
-    "wheel",
+]
+docs = [
+    "requests",
+    "mkdocs-gen-files",
+    "mkdocs-literate-nav",
+    "mkdocs-material",
+    "mkdocs-section-index",
+    "mkdocstrings[python]",
+    "pymdown-extensions",
 ]
 
 [tool.setuptools.dynamic]

@@ -1,0 +1,7 @@
+{
+    "packages": [
+        "python@3.10",
+        "nats-server@latest",
+        "natscli@latest"
+    ]
+}
