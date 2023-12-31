@@ -1,8 +1,11 @@
 # @generated
 
 from dataclasses import dataclass
+from typing import List
 
 from easynats.channel import Channel, Command
+
+from .common.consumer_info import ConsumerInfo
 
 
 @dataclass
@@ -32,6 +35,7 @@ class ConsumerListResponse:
     offset: int
     limit: int
     type: str
+    consumers: List[ConsumerInfo]
 
 
 JetstreamApiV1ConsumerListResponse = ConsumerListResponse

@@ -7,6 +7,17 @@ from easynats.jetstream.models.api.api_error import Error
 
 from .api import JetStreamAPIException, JetStreamClient
 from .entities.stream import Stream, StreamConfig, StreamMeta
+from .models.api.common.stream_configuration import (
+    Compression,
+    Discard,
+    Mirror,
+    Placement,
+    Republish,
+    Retention,
+    Source,
+    Storage,
+    SubjectTransform,
+)
 
 
 class StreamManager:
@@ -55,7 +66,75 @@ class StreamManager:
             client=self.client, stream_info=stream_info_response
         )
 
-    async def create(self, stream_config: StreamConfig) -> Stream:
+    async def create(
+        self,
+        name: str,
+        subjects: list[str] | None = None,
+        retention: Retention | None = None,
+        max_consumers: int | None = None,
+        max_msgs: int | None = None,
+        max_bytes: int | None = None,
+        max_age: int | None = None,
+        storage: Storage | None = None,
+        num_replicas: int | None = None,
+        duplicate_window: int | None = None,
+        description: str | None = None,
+        subject_transform: SubjectTransform | None = None,
+        max_msgs_per_subject: int | None = None,
+        max_msg_size: int | None = None,
+        compression: Compression | None = None,
+        first_seq: int | None = None,
+        no_ack: bool | None = None,
+        discard: Discard | None = None,
+        placement: Placement | None = None,
+        mirror: Mirror | None = None,
+        sources: list[Source] | None = None,
+        sealed: bool | None = None,
+        deny_delete: bool | None = None,
+        deny_purge: bool | None = None,
+        allow_rollup_hdrs: bool | None = None,
+        allow_direct: bool | None = None,
+        mirror_direct: bool | None = None,
+        republish: Republish | None = None,
+        discard_new_per_subject: bool | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> Stream:
+        """Create a new Stream."""
+        stream_config = StreamConfig.new(
+            name=name,
+            subjects=subjects,
+            retention=retention,
+            max_consumers=max_consumers,
+            max_msgs=max_msgs,
+            max_bytes=max_bytes,
+            max_age=max_age,
+            storage=storage,
+            num_replicas=num_replicas,
+            duplicate_window=duplicate_window,
+            description=description,
+            subject_transform=subject_transform,
+            max_msgs_per_subject=max_msgs_per_subject,
+            max_msg_size=max_msg_size,
+            compression=compression,
+            first_seq=first_seq,
+            no_ack=no_ack,
+            discard=discard,
+            placement=placement,
+            mirror=mirror,
+            sources=sources,
+            sealed=sealed,
+            deny_delete=deny_delete,
+            deny_purge=deny_purge,
+            allow_rollup_hdrs=allow_rollup_hdrs,
+            allow_direct=allow_direct,
+            mirror_direct=mirror_direct,
+            republish=republish,
+            discard_new_per_subject=discard_new_per_subject,
+            metadata=metadata,
+        )
+        return await self.create_from_config(stream_config=stream_config)
+
+    async def create_from_config(self, stream_config: StreamConfig) -> Stream:
         """Create a new Stream."""
         names = await self.list_names()
         if stream_config.name in names:
@@ -80,7 +159,7 @@ class StreamManager:
         try:
             stream = await self.get(stream_name=stream_config.name)
         except Exception:
-            return await self.create(stream_config=stream_config)
+            return await self.create_from_config(stream_config=stream_config)
         if stream.config == stream_config:
             return stream
         stream_update_response = await self.client.update_stream(stream_config)
@@ -96,7 +175,7 @@ class StreamManager:
         no_consumers: bool | None = None,
     ) -> StreamMeta:
         """Backup a stream."""
-        nc = self.client.connection.connection
+        nc = self.client.typed.connection
         deliver_subject = nc.client.new_inbox()
         sub = await nc.client.subscribe(  # pyright: ignore[reportUnknownMemberType]
             deliver_subject
@@ -132,11 +211,11 @@ class StreamManager:
             stream_state=stream_meta.state,
         )
         async for chunk in chunks_reader:
-            await self.client.connection.connection.request(
+            await self.client.typed.connection.request(
                 subject=resp.deliver_subject,
                 payload=chunk,
             )
-        await self.client.connection.connection.request(
+        await self.client.typed.connection.request(
             subject=resp.deliver_subject,
             payload=b"",
         )

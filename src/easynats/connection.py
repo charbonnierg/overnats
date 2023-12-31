@@ -13,30 +13,19 @@ from __future__ import annotations
 
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, replace
-from typing import Any, Generic, TypeVar
+from typing import Any, Awaitable, Callable, Generic, TypeVar
 
 from nats.aio.client import Client as NatsClient
 from typing_extensions import Self
 
 from . import micro
 from .channel import Command, ErrorT, Event, MessageT, ParamsT, ReplyT
+from .core import Msg, Reply, SubscriptionHandler, SubscriptionIterator
+from .jetstream.api import JetStreamClient
+from .jetstream.manager import StreamManager
 from .options import ConnectOption, ConnectOpts, JetStreamOpts, MicroOpts
 
 T = TypeVar("T")
-
-
-@dataclass
-class Reply:
-    """The reply of request."""
-
-    origin: str
-    """The subject for which this reply is sent."""
-    subject: str
-    """The subject on which reply was received."""
-    payload: bytes
-    """The reply data."""
-    headers: dict[str, str]
-    """The reply headers."""
 
 
 @dataclass
@@ -89,7 +78,7 @@ class TypedReply(Generic[ParamsT, ReplyT, ErrorT]):
         )
 
 
-class NatsConnection:
+class Connection:
     """An [`NatsConnection`][easynats.connection.NatsConnection] is a wrapper around a NATS client.
 
     It accepts connect options at initialization and provides the
@@ -324,7 +313,35 @@ class NatsConnection:
             headers=headers,
         )
 
-    async def __aenter__(self) -> NatsConnection:
+    def create_subscription_handler(
+        self,
+        subject: str,
+        callback: Callable[[Msg], Awaitable[None]],
+        queue: str | None = None,
+        drain_on_exit: bool = True,
+    ) -> SubscriptionHandler:
+        return SubscriptionHandler(
+            client=self.client,
+            subject=subject,
+            callback=callback,
+            queue=queue,
+            drain_on_exit=drain_on_exit,
+        )
+
+    def create_subscription_iterator(
+        self,
+        subject: str,
+        queue: str | None = None,
+        drain_on_exit: bool = True,
+    ) -> SubscriptionIterator:
+        return SubscriptionIterator(
+            client=self.client,
+            subject=subject,
+            queue=queue,
+            drain_on_exit=drain_on_exit,
+        )
+
+    async def __aenter__(self) -> Connection:
         await self.open()
         return self
 
@@ -341,7 +358,7 @@ class TypedConnection:
     about typed connection usage.
     """
 
-    def __init__(self, connection: NatsConnection) -> None:
+    def __init__(self, connection: Connection) -> None:
         self.connection = connection
 
     async def publish_event(
@@ -440,9 +457,7 @@ class TypedConnection:
 
 
 class MicroConnection:
-    def __init__(
-        self, connection: NatsConnection, opts: MicroOpts | None = None
-    ) -> None:
+    def __init__(self, connection: Connection, opts: MicroOpts | None = None) -> None:
         self.options = opts or MicroOpts()
         self.connection = connection
 
@@ -464,13 +479,17 @@ class MicroConnection:
 
 
 class MonitoringConnection:
-    def __init__(self, connection: NatsConnection) -> None:
+    def __init__(self, connection: Connection) -> None:
         self.connection = connection
 
 
 class JetStreamConnection:
     def __init__(
-        self, connection: NatsConnection, options: JetStreamOpts | None = None
+        self, connection: Connection, options: JetStreamOpts | None = None
     ) -> None:
-        self.connection = connection
         self.options = options or JetStreamOpts()
+        self._connection = connection
+        self._client = JetStreamClient(
+            self._connection, api_prefix=self.options.get_api_prefix()
+        )
+        self.streams = StreamManager(self._client)

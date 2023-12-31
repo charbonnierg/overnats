@@ -4,7 +4,7 @@ import base64
 import datetime
 import json
 from dataclasses import dataclass
-from typing import Any, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
 
 import nats.js.api
 from nats.aio.client import _CRLF_  # pyright: ignore[reportPrivateUsage]
@@ -13,7 +13,6 @@ from nats.aio.client import _SPC_BYTE_  # pyright: ignore[reportPrivateUsage]
 from nats.aio.client import NATS_HDR_LINE, NATS_HDR_LINE_SIZE, STATUS_MSG_LEN
 from typing_extensions import Literal
 
-from ..connection import NatsConnection, TypedReply
 from .models.api.account_info import GET_ACCOUNT_INFO, AccountInfoResponse
 from .models.api.account_purge import PURGE_ACCOUNT, AccountPurgeResponse
 from .models.api.api_error import Error, JetStreamApiV1Error
@@ -24,6 +23,7 @@ from .models.api.consumer_create import (
     CREATE_DURABLE_CONSUMER,
     CREATE_EPHEMERAL_CONSUMER,
     CREATE_FILTERED_DURABLE_CONSUMER,
+    Action,
     ConsumerCreateResponse,
     JetstreamApiV1ConsumerCreateParams,
     JetstreamApiV1ConsumerCreateRequest,
@@ -170,6 +170,10 @@ from .models.api.stream_update import (
     StreamUpdateResponse,
 )
 
+if TYPE_CHECKING:
+    from ..connection import Connection, TypedReply
+
+
 T = TypeVar("T")
 
 
@@ -252,10 +256,10 @@ class JetStreamClient:
 
     def __init__(
         self,
-        connection: NatsConnection,
+        connection: Connection,
         api_prefix: str = "$JS.API.",
     ) -> None:
-        self.connection = connection.typed()
+        self.typed = connection.typed()
         self.js_api_prefix = api_prefix
 
     def _raise_jetstream_error(self, error: Error) -> NoReturn:
@@ -279,7 +283,7 @@ class JetStreamClient:
             A response containing information about the current JetStream account,
                 such as the account limits and usage.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             GET_ACCOUNT_INFO,
             params=None,
             payload=None,
@@ -293,7 +297,7 @@ class JetStreamClient:
         Returns:
             A response containing a boolean indicating whether the purge was successfully initiated.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             PURGE_ACCOUNT,
             params=None,
             payload=None,
@@ -315,7 +319,7 @@ class JetStreamClient:
         Returns:
             A response containing a list of streams.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             LIST_STREAMS,
             params=None,
             payload=JetstreamApiV1StreamListRequest(
@@ -340,7 +344,7 @@ class JetStreamClient:
         Returns:
             A response containing a list of stream names.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             LIST_STREAM_NAMES,
             params=None,
             payload=JetstreamApiV1StreamNamesRequest(
@@ -363,7 +367,7 @@ class JetStreamClient:
         Returns:
             A response containing a list of stream template names.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             LIST_STREAM_TEMPLATE_NAMES,
             params=None,
             payload=JetStreamApiV1StreamTemplateNamesRequest(
@@ -389,7 +393,7 @@ class JetStreamClient:
         Returns:
             A response containing the template configuration.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             CREATE_STREAM_TEMPLATE,
             params=JetStreamApiV1StreamTemplateCreateParams(
                 template_name=template_name,
@@ -415,7 +419,7 @@ class JetStreamClient:
         Returns:
             A response containing a boolean indicating that the template was successfully deleted.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             DELETE_STREAM_TEMPLATE,
             params=JetStreamApiV1StreamTemplateDeleteParams(
                 template_name=template_name
@@ -437,7 +441,7 @@ class JetStreamClient:
         Returns:
             A response holding stream template info.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             GET_STREAM_TEMPLATE_INFO,
             params=JetStreamApiV1StreamTemplateInfoParams(template_name=template_name),
             payload=None,
@@ -463,7 +467,7 @@ class JetStreamClient:
         Returns:
             A response holding stream info.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             GET_STREAM_INFO,
             params=JetStreamApiV1StreamInfoParams(stream_name=stream_name),
             payload=JetStreamApiV1StreamInfoRequest(
@@ -490,7 +494,7 @@ class JetStreamClient:
             A response holding the message. This is not the same python type as a message
             received from a subscription.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             DIRECT_GET_STREAM_LAST_MSG_FOR_SUBJECT,
             params=JetStreamApiV1StreamDirectGetLastMsgForSubjectParams(
                 stream_name=stream_name,
@@ -520,7 +524,7 @@ class JetStreamClient:
             A response holding the message. This is not the same python type as a message
             received from a subscription.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             DIRECT_GET_STREAM_MSG,
             params=JetStreamApiV1StreamDirectMsgGetParams(stream_name=stream_name),
             payload=JetStreamApiV1StreamMsgGetRequest(
@@ -559,7 +563,7 @@ class JetStreamClient:
             A response holding the message. This is not the same python type as a message
             received from a subscription.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             GET_STREAM_MSG,
             params=JetStreamApiV1StreamMsgGetParams(stream_name=stream_name),
             payload=JetStreamApiV1StreamMsgGetRequest(
@@ -601,7 +605,7 @@ class JetStreamClient:
         """
         if not stream_config.name:
             raise ValueError("name must be set in config")
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             CREATE_STREAM,
             params=JetstreamApiV1StreamCreateParams(stream_name=stream_config.name),
             payload=stream_config,
@@ -623,7 +627,7 @@ class JetStreamClient:
         """
         if not stream_config.name:
             raise ValueError("name must be set in config")
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             UPDATE_STREAM,
             params=JetStreamApiV1StreamUpdateParams(stream_name=stream_config.name),
             payload=stream_config,
@@ -646,7 +650,7 @@ class JetStreamClient:
             until_sequence: Purge messages up to this sequence number.
             keep: Keep this number of messages.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             PURGE_STREAM,
             params=JetStreamApiV1StreamPurgeParams(stream_name=stream_name),
             payload=JetStreamApiV1StreamPurgeRequest(
@@ -667,7 +671,7 @@ class JetStreamClient:
         Returns:
             A response containing a boolean indicating that the stream was successfully deleted.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             DELETE_STREAM,
             params=JetStreamApiV1StreamDeleteParams(stream_name=stream_name),
             payload=None,
@@ -691,7 +695,7 @@ class JetStreamClient:
         Returns:
             A response containing a boolean indicating that the message was successfully deleted.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             DELETE_STREAM_MSG,
             params=JetStreamApiV1StreamMsgDeleteParams(stream_name=stream_name),
             payload=JetStreamApiV1StreamMsgDeleteRequest(
@@ -717,7 +721,7 @@ class JetStreamClient:
         Returns:
             A response containing the deliver subject where the chunks to restore should be published.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             RESTORE_STREAM,
             params=JetStreamApiV1StreamRestoreParams(stream_name=stream_name),
             payload=JetStreamApiV1StreamRestoreRequest(
@@ -748,7 +752,7 @@ class JetStreamClient:
         Returns:
             A response containing the stream config and stream state that will be snapshotted.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             SNAPSHOT_STREAM,
             params=JetStreamApiV1StreamSnapshotParams(stream_name=stream_name),
             payload=JetStreamApiV1StreamSnapshotRequest(
@@ -775,7 +779,7 @@ class JetStreamClient:
         Returns:
             A response containing a list of consumers.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             LIST_CONSUMERS,
             params=JetStreamApiV1ConsumerListParams(stream_name=stream_name),
             payload=JetstreamApiV1ConsumerListRequest(offset=offset),
@@ -797,7 +801,7 @@ class JetStreamClient:
         Returns:
             A response containing a list of consumer names.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             LIST_CONSUMER_NAMES,
             params=JetStreamApiV1ConsumerNamesParams(stream_name=stream_name),
             payload=JetstreamApiV1ConsumerNamesRequest(offset=offset),
@@ -819,7 +823,7 @@ class JetStreamClient:
         Returns:
             A response containing information about the consumer.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             GET_CONSUMER_INFO,
             params=JetStreamApiV1ConsumerInfoParams(
                 stream_name=stream_name,
@@ -844,12 +848,13 @@ class JetStreamClient:
         Returns:
             A response containing the consumer configuration and state.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             CREATE_EPHEMERAL_CONSUMER,
             params=JetstreamApiV1ConsumerCreateParams(stream_name=stream_name),
             payload=JetstreamApiV1ConsumerCreateRequest(
                 stream_name=stream_name,
                 config=consumer_config,
+                action=Action.CREATE,
             ),
             prefix=self.js_api_prefix,
         )
@@ -871,7 +876,7 @@ class JetStreamClient:
         """
         if not consumer_config.durable_name:
             raise ValueError("durable_name must be set in config")
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             CREATE_DURABLE_CONSUMER,
             params=JetstreamApiV1ConsumerDurableCreateParams(
                 stream_name=stream_name,
@@ -880,6 +885,7 @@ class JetStreamClient:
             payload=JetstreamApiV1ConsumerCreateRequest(
                 stream_name=stream_name,
                 config=consumer_config,
+                action=Action.CREATE,
             ),
             prefix=self.js_api_prefix,
         )
@@ -906,7 +912,7 @@ class JetStreamClient:
         if consumer_config.filter_subjects:
             raise ValueError("filter_subjects must not be set in config")
 
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             CREATE_FILTERED_DURABLE_CONSUMER,
             params=JetstreamApiV1ConsumerFilteredDurableCreateParams(
                 stream_name=stream_name,
@@ -916,6 +922,7 @@ class JetStreamClient:
             payload=JetstreamApiV1ConsumerCreateRequest(
                 stream_name=stream_name,
                 config=consumer_config,
+                action=Action.CREATE,
             ),
             prefix=self.js_api_prefix,
         )
@@ -935,7 +942,7 @@ class JetStreamClient:
         Returns:
             A response containing a boolean indicating that the consumer was successfully deleted.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             DELETE_CONSUMER,
             params=JetStreamApiV1ConsumerDeleteParams(
                 stream_name=stream_name,
@@ -978,7 +985,7 @@ class JetStreamClient:
                 that the message will never be delivered to the reply subject if the
                 request never reaches the server.
         """
-        await self.connection.publish_command(
+        await self.typed.publish_command(
             GET_CONSUMER_NEXT_MSG,
             params=JetStreamApiV1ConsumerGetnextParams(
                 stream_name=stream_name,
@@ -1009,7 +1016,7 @@ class JetStreamClient:
         Returns:
             A response containing a boolean indicating that the consumer leader was successfully stepped down.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             STEPDOWN_CONSUMER_LEADER,
             params=JetStreamApiV1ConsumerLeaderStepdownParams(
                 stream_name=stream_name,
@@ -1032,7 +1039,7 @@ class JetStreamClient:
         Returns:
             A response containing a boolean indicating that the stream leader was successfully stepped down.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             STEPDOWN_STREAM_LEADER,
             params=JetStreamApiV1StreamLeaderStepdownParams(stream_name=stream_name),
             payload=None,
@@ -1052,7 +1059,7 @@ class JetStreamClient:
         Returns:
             A response containing a boolean indicating that the peer was successfully removed.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             STREAM_PEER_REMOVE,
             params=JetStreamApiV1StreamRemovePeerParams(stream_name=stream_name),
             payload=JetStreamApiV1StreamRemovePeerRequest(peer=peer),
@@ -1066,7 +1073,7 @@ class JetStreamClient:
         Returns:
             A response containing a boolean indicating that the metadata leader was successfully stepped down.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             STEPDOWN_LEADER,
             params=None,
             payload=JetstreamApiV1MetaLeaderStepdownRequest(),
@@ -1088,7 +1095,7 @@ class JetStreamClient:
         Returns:
             A response containing a boolean indicating that the server was successfully removed.
         """
-        reply = await self.connection.request_command(
+        reply = await self.typed.request_command(
             REMOVE_SERVER,
             params=None,
             payload=JetstreamApiV1MetaServerRemoveRequest(
@@ -1148,7 +1155,7 @@ class JetStreamClient:
             ] = expected_last_subject_sequence
         if purge:
             headers["Nats-Rollup"] = purge
-        reply = await self.connection.connection.request(
+        reply = await self.typed.connection.request(
             subject=subject,
             payload=payload,
             headers=headers,
@@ -1172,7 +1179,7 @@ class JetStreamClient:
     def _parse_headers(self, headers: bytes) -> dict[str, str]:
         if not headers:
             return {}
-        nc = self.connection.connection.client
+        nc = self.typed.connection.client
         hdr: dict[str, str] | None = None
         raw_headers = headers[NATS_HDR_LINE_SIZE:]
 
@@ -1202,9 +1209,7 @@ class JetStreamClient:
 
             # Move the raw_headers to end of line
             i = raw_headers.find(_CRLF_)
-            raw_headers = raw_headers[
-                i + _CRLF_LEN_ :
-            ]
+            raw_headers = raw_headers[i + _CRLF_LEN_ :]
 
             if len(desc) > 0:
                 # Heartbeat messages can have both headers and inline status,
@@ -1229,9 +1234,7 @@ class JetStreamClient:
         #
         # NATS/1.0\r\nfoo: bar\r\nhello: world
         #
-        raw_headers = headers[
-            NATS_HDR_LINE_SIZE + _CRLF_LEN_ :
-        ]
+        raw_headers = headers[NATS_HDR_LINE_SIZE + _CRLF_LEN_ :]
         parsed_hdr = {
             k.strip(): v.strip()
             for k, v in nc._hdr_parser.parsebytes(  # pyright: ignore[reportPrivateUsage]

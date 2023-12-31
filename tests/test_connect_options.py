@@ -5,13 +5,13 @@ from pathlib import Path
 import pytest
 
 from easynats import options
-from easynats.connection import NatsConnection
+from easynats.connection import Connection
 
 
 class TestConnectOptions:
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
-        self.connection = NatsConnection()
+        self.connection = Connection()
 
     def test_server_option(self):
         conn = self.connection.with_options(options.Server("nats://localhost:4223"))

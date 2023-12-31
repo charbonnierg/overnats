@@ -80,3 +80,39 @@ class Cluster:
     """
     The members of the RAFT cluster
     """
+
+
+@dataclass
+class ConsumerState:
+    delivered: Delivered
+    """
+    The last message delivered from this Consumer
+    """
+    ack_floor: AckFloor
+    """
+    The highest contiguous acknowledged message
+    """
+    num_ack_pending: int
+    """
+    The number of messages pending acknowledgement
+    """
+    num_redelivered: int
+    """
+    The number of redeliveries that have been performed
+    """
+    num_waiting: int
+    """
+    The number of pull consumers waiting for messages
+    """
+    num_pending: int
+    """
+    The number of messages left unconsumed in this Consumer
+    """
+    cluster: Optional[Cluster] = None
+    """
+    Informaton about the cluster the consumer is in
+    """
+    push_bound: Optional[bool] = None
+    """
+    Indicates if any client is connected and receiving messages from a push consumer
+    """
