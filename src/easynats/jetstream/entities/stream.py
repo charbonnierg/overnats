@@ -685,7 +685,7 @@ class Stream:
 
     async def create_ephemeral_push_consumer(
         self,
-        deliver_subject: str,
+        deliver_subject: str | None = None,
         description: str | None = None,
         ack_policy: AckPolicy | None = None,
         replay_policy: ReplayPolicy | None = None,
@@ -708,6 +708,8 @@ class Stream:
         mem_storage: bool | None = None,
         metadata: dict[str, str] | None = None,
     ) -> EphemeralPushConsumer:
+        if not deliver_subject:
+            deliver_subject = self.client.typed.connection.client.new_inbox()
         consumer_config = ConsumerConfig.new_ephemeral_push_config(
             deliver_subject=deliver_subject,
             description=description,
