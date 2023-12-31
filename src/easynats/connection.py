@@ -79,12 +79,12 @@ class TypedReply(Generic[ParamsT, ReplyT, ErrorT]):
 
 
 class Connection:
-    """An [`NatsConnection`][easynats.connection.NatsConnection] is a wrapper around a NATS client.
+    """An [`NatsConnection`][easynats.connection.Connection] is a wrapper around a NATS client.
 
     It accepts connect options at initialization and provides the
-    [`with_options() method`][easynats.connection.NatsConnection.with_options] to apply connect options after initialization.
+    [`with_options() method`][easynats.connection.Connection.configure] to apply connect options after initialization.
 
-    An [`NatsConnection`][easynats.connection.NatsConnection] can be used as an asynchronous context manager
+    An [`NatsConnection`][easynats.connection.Connection] can be used as an asynchronous context manager
     to automatically open and close the connection.
     """
 
@@ -102,7 +102,7 @@ class Connection:
         self._nats_client_or_none: NatsClient | None = None
         self._stack_or_none: AsyncExitStack | None = None
 
-    def with_options(self, *option: ConnectOption) -> Self:
+    def configure(self, *option: ConnectOption) -> Self:
         """Apply connect options to a new `NatsConnection` instance.
 
         This method returns a new `NatsConnection` instance with the

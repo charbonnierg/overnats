@@ -463,6 +463,14 @@ class Stream:
         return [info.name for info in response.consumers]
 
     async def get_consumer(self, consumer_name: str) -> Consumer:
+        """Get a consumer by its name.
+
+        Raises:
+            JetStreamApiError: When NATS server returns an error.
+
+        Returns:
+            The consumer as a python object.
+        """
         consumer_info = await self.client.get_consumer_info(
             stream_name=self.name, consumer_name=consumer_name
         )
@@ -476,6 +484,9 @@ class Stream:
 
         Args:
             config: The consumer configuration.
+
+        Raises:
+            JetStreamApiError: When NATS server returns an error.
 
         Returns:
             The new consumer.
@@ -501,6 +512,9 @@ class Stream:
 
         Args:
             config: The consumer configuration.
+
+        Raises:
+            JetStreamApiError: When NATS server returns an error.
 
         Returns:
             The new consumer.
@@ -557,6 +571,44 @@ class Stream:
         mem_storage: bool | None = None,
         metadata: dict[str, str] | None = None,
     ) -> DurablePullConsumer:
+        """Create a durable pull consumer on this stream.
+
+        If consumer already exists with the exact same configuration,
+        no error is raised and the existing consumer is returned.
+
+        If consumer already exists with a different configuration,
+        a JetStreamApiError is raised.
+
+        Args:
+            name: The name of the consumer.
+            description: A short description for the consumer.
+            ack_policy: The ack policy for the consumer.
+            replay_policy: The replay policy for the consumer.
+            deliver_policy: The deliver policy for the consumer.
+            opt_start_seq: The optional start sequence number. When specified, message before this sequence will be skipped.
+            opt_start_time: The optional start time. When specified, message before this time will be skipped.
+            ack_wait: The ack wait timeout. When specified, the consumer will wait for this amount of time for an ack.
+            max_deliver: The maximum number of deliveries. When specified, the consumer will stop delivering messages after this number of deliveries.
+            filter_subjects: The filter subjects. When specified, the consumer will only receive messages from these subjects.
+            sample_freq: The sample frequency. When specified, the JetStream metrics API will sample messages at this frequency.
+            max_ack_pending: The maximum number of pending acks. When specified, the consumer will stop delivering messages after this number of pending acks, and will resume when the number of pending acks drops below this number.
+            max_waiting: The maximum number of waiting acks. When specified, the consumer will refuse to deliver messages to the client when the number of already waiting client reaches this number.
+            headers_only: Whether to only include headers. When specified, the consumer will only include headers in the messages.
+            max_batch: The maximum batch size. When specified, the consumer will refuse requests for more than this number of messages.
+            max_expires: The maximum expiration time. When specified, the consumer will refuse requests for message with expiration time greater than this value.
+            max_bytes: The maximum number of bytes. When specified, the consumer will refuse requests for more than this number of bytes.
+            inactive_threshold: The inactive threshold. When specified and the consumer is inactive for this amount of time, the consumer will be removed automatically by the server.
+            backoff: The backoff policy. Mutually exclusive with `ack_wait`. When specified, the consumer will wait for the specified amounts of time before attempting to redeliver a message.
+            num_replicas: The number of replicas.
+            mem_storage: Whether to use memory storage. This can be used to bypass the parent stream configuration.
+            metadata: The consumer metadata. This can be used to store arbitrary data about the consumer.
+
+        Raises:
+            JetStreamApiError: When NATS server returns an error.
+
+        Returns:
+            The durable pull consumer.
+        """
         consumer_config = ConsumerConfig.new_durable_pull_config(
             name=name,
             description=description,
@@ -607,6 +659,41 @@ class Stream:
         mem_storage: bool | None = None,
         metadata: dict[str, str] | None = None,
     ) -> EphemeralPullConsumer:
+        """Create an ephemeral pull consumer on this stream.
+
+        This method will always create a new consumer, even
+        if a consumer with the same configuration already
+        exists.
+
+        Args:
+            description: A short description for the consumer.
+            ack_policy: The ack policy for the consumer.
+            replay_policy: The replay policy for the consumer.
+            deliver_policy: The deliver policy for the consumer.
+            opt_start_seq: The optional start sequence number. When specified, message before this sequence will be skipped.
+            opt_start_time: The optional start time. When specified, message before this time will be skipped.
+            ack_wait: The ack wait timeout. When specified, the consumer will wait for this amount of time for an ack.
+            max_deliver: The maximum number of deliveries. When specified, the consumer will stop delivering messages after this number of deliveries.
+            filter_subjects: The filter subjects. When specified, the consumer will only receive messages from these subjects.
+            sample_freq: The sample frequency. When specified, the JetStream metrics API will sample messages at this frequency.
+            max_ack_pending: The maximum number of pending acks. When specified, the consumer will stop delivering messages after this number of pending acks, and will resume when the number of pending acks drops below this number.
+            max_waiting: The maximum number of waiting acks. When specified, the consumer will refuse to deliver messages to the client when the number of already waiting client reaches this number.
+            headers_only: Whether to only include headers. When specified, the consumer will only include headers in the messages.
+            max_batch: The maximum batch size. When specified, the consumer will refuse requests for more than this number of messages.
+            max_expires: The maximum expiration time. When specified, the consumer will refuse requests for message with expiration time greater than this value.
+            max_bytes: The maximum number of bytes. When specified, the consumer will refuse requests for more than this number of bytes.
+            inactive_threshold: The inactive threshold. When specified and the consumer is inactive for this amount of time, the consumer will be removed automatically by the server.
+            backoff: The backoff policy. Mutually exclusive with `ack_wait`. When specified, the consumer will wait for the specified amounts of time before attempting to redeliver a message.
+            num_replicas: The number of replicas.
+            mem_storage: Whether to use memory storage. This can be used to bypass the parent stream configuration.
+            metadata: The consumer metadata. This can be used to store arbitrary data about the consumer.
+
+        Raises:
+            JetStreamApiError: When NATS server returns an error.
+
+        Returns:
+            The ephemeral pull consumer.
+        """
         consumer_config = ConsumerConfig.new_ephemeral_pull_config(
             description=description,
             ack_policy=ack_policy,
@@ -657,6 +744,44 @@ class Stream:
         mem_storage: bool | None = None,
         metadata: dict[str, str] | None = None,
     ) -> DurablePushConsumer:
+        """Create a durable push consumer on this stream.
+
+        If consumer already exists with the exact same configuration,
+        no error is raised and the existing consumer is returned.
+
+        If consumer already exists with a different configuration,
+        a JetStreamApiError is raised.
+
+        Args:
+            name: The name of the consumer.
+            deliver_subject: The subject on which to deliver messages.
+            description: A short description for the consumer.
+            ack_policy: The ack policy for the consumer.
+            replay_policy: The replay policy for the consumer.
+            deliver_policy: The deliver policy for the consumer.
+            opt_start_seq: The optional start sequence number. When specified, message before this sequence will be skipped.
+            opt_start_time: The optional start time. When specified, message before this time will be skipped.
+            ack_wait: The ack wait timeout. When specified, the consumer will wait for this amount of time for an ack.
+            max_deliver: The maximum number of deliveries. When specified, the consumer will stop delivering messages after this number of deliveries.
+            filter_subjects: The filter subjects. When specified, the consumer will only receive messages from these subjects.
+            sample_freq: The sample frequency. When specified, the JetStream metrics API will sample messages at this frequency.
+            rate_limit_bps: The rate limit in bytes per second. When specified, the consumer will rate limit the messages.
+            max_ack_pending: The maximum number of pending acks. When specified, the consumer will stop delivering messages after this number of pending acks, and will resume when the number of pending acks drops below this number.
+            flow_control: Whether to enable flow control. When specified, the consumer periodically send flow control messages which must be replied to by the client for the consumer to continue delivering messages.
+            headers_only: Whether to only include headers. When specified, the consumer will only include headers in the messages.
+            idle_heartbeat: The idle heartbeat. When specified, the consumer will send heartbeats to the client when idle to notify that it is alive.
+            inactive_threshold: The inactive threshold. When specified and the consumer is inactive for this amount of time, the consumer will be removed automatically by the server.
+            backoff: The backoff policy. Mutually exclusive with `ack_wait`. When specified, the consumer will wait for the specified amounts of time before attempting to redeliver a message.
+            num_replicas: The number of replicas.
+            mem_storage: Whether to use memory storage. This can be used to bypass the parent stream configuration.
+            metadata: The consumer metadata. This can be used to store arbitrary data about the consumer.
+
+        Raises:
+            JetStreamApiError: When NATS server returns an error.
+
+        Returns:
+            The durable push consumer.
+        """
         consumer_config = ConsumerConfig.new_durable_push_config(
             name=name,
             deliver_subject=deliver_subject,
@@ -708,6 +833,41 @@ class Stream:
         mem_storage: bool | None = None,
         metadata: dict[str, str] | None = None,
     ) -> EphemeralPushConsumer:
+        """Create an ephemeral push consumer on this stream.
+
+        This method will always create a new consumer, even
+        if a consumer with the same configuration already
+        exists.
+
+        Args:
+            deliver_subject: The subject on which to deliver messages. When not specified, a random subject is generated.
+            description: A short description for the consumer.
+            ack_policy: The ack policy for the consumer.
+            replay_policy: The replay policy for the consumer.
+            deliver_policy: The deliver policy for the consumer.
+            opt_start_seq: The optional start sequence number. When specified, message before this sequence will be skipped.
+            opt_start_time: The optional start time. When specified, message before this time will be skipped.
+            ack_wait: The ack wait timeout. When specified, the consumer will wait for this amount of time for an ack.
+            max_deliver: The maximum number of deliveries. When specified, the consumer will stop delivering messages after this number of deliveries.
+            filter_subjects: The filter subjects. When specified, the consumer will only receive messages from these subjects.
+            sample_freq: The sample frequency. When specified, the JetStream metrics API will sample messages at this frequency.
+            rate_limit_bps: The rate limit in bytes per second. When specified, the consumer will rate limit the messages.
+            max_ack_pending: The maximum number of pending acks. When specified, the consumer will stop delivering messages after this number of pending acks, and will resume when the number of pending acks drops below this number.
+            flow_control: Whether to enable flow control. When specified, the consumer periodically send flow control messages which must be replied to by the client for the consumer to continue delivering messages.
+            headers_only: Whether to only include headers. When specified, the consumer will only include headers in the messages.
+            idle_heartbeat: The idle heartbeat. When specified, the consumer will send heartbeats to the client when idle to notify that it is alive.
+            inactive_threshold: The inactive threshold. When specified and the consumer is inactive for this amount of time, the consumer will be removed automatically by the server.
+            backoff: The backoff policy. Mutually exclusive with `ack_wait`. When specified, the consumer will wait for the specified amounts of time before attempting to redeliver a message.
+            num_replicas: The number of replicas.
+            mem_storage: Whether to use memory storage. This can be used to bypass the parent stream configuration.
+            metadata: The consumer metadata. This can be used to store arbitrary data about the consumer.
+
+        Raises:
+            JetStreamApiError: When NATS server returns an error.
+
+        Returns:
+            The ephemeral push consumer.
+        """
         if not deliver_subject:
             deliver_subject = self.client.typed.connection.client.new_inbox()
         consumer_config = ConsumerConfig.new_ephemeral_push_config(

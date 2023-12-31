@@ -70,13 +70,26 @@ class ConnectOpts:
 
 
 class ConnectOption(metaclass=abc.ABCMeta):
+    """Base class for connect options.
+
+    A connect option is a callable which can transform a
+    [`ConnectOpts`][] object.
+
+    For example, the [`WithServer`][] connect option can be used
+    to specify the server URL:
+
+    ```python
+        easynats.connect(WithServer("nats://localhost:4222"))
+    ```
+    """
+
     @abc.abstractmethod
     def apply(self, opts: ConnectOpts) -> None:
         raise NotImplementedError
 
 
 @dataclass
-class Server(ConnectOption):
+class WithServer(ConnectOption):
     url: str
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -84,7 +97,7 @@ class Server(ConnectOption):
 
 
 @dataclass
-class Servers(ConnectOption):
+class WithServers(ConnectOption):
     urls: list[str]
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -92,20 +105,20 @@ class Servers(ConnectOption):
 
 
 @dataclass
-class ConnectionName(ConnectOption):
+class WithConnectionName(ConnectOption):
     name: str
 
     def apply(self, opts: ConnectOpts) -> None:
         opts.name = self.name
 
 
-class DontRandomize(ConnectOption):
+class WithDeterministicServers(ConnectOption):
     def apply(self, opts: ConnectOpts) -> None:
         opts.dont_randomize = True
 
 
 @dataclass
-class InboxPrefix(ConnectOption):
+class WithInboxPrefix(ConnectOption):
     prefix: str | bytes
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -115,23 +128,23 @@ class InboxPrefix(ConnectOption):
             opts.inbox_prefix = self.prefix
 
 
-class Pedantic(ConnectOption):
+class WithPedanticMode(ConnectOption):
     def apply(self, opts: ConnectOpts) -> None:
         opts.pedantic = True
 
 
-class Verbose(ConnectOption):
+class WithVerboseLogging(ConnectOption):
     def apply(self, opts: ConnectOpts) -> None:
         opts.verbose = True
 
 
-class NoEcho(ConnectOption):
+class WithNoEcho(ConnectOption):
     def apply(self, opts: ConnectOpts) -> None:
         opts.no_echo = True
 
 
 @dataclass
-class ConnectTimeout(ConnectOption):
+class WithConnectTimeout(ConnectOption):
     timeout: float
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -139,7 +152,7 @@ class ConnectTimeout(ConnectOption):
 
 
 @dataclass
-class DrainTimeout(ConnectOption):
+class WithDrainTimeout(ConnectOption):
     timeout: float
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -147,7 +160,7 @@ class DrainTimeout(ConnectOption):
 
 
 @dataclass
-class AllowReconnect(ConnectOption):
+class WithAllowReconnect(ConnectOption):
     max_attempts: int = -1
     delay_seconds: float = 2
 
@@ -158,7 +171,7 @@ class AllowReconnect(ConnectOption):
 
 
 @dataclass
-class PingPong(ConnectOption):
+class WithPingPong(ConnectOption):
     interval: float = 60
     max_outstanding: int = 2
 
@@ -168,7 +181,7 @@ class PingPong(ConnectOption):
 
 
 @dataclass
-class PendingQueue(ConnectOption):
+class WithPendingQueue(ConnectOption):
     max_bytes: int = 1024 * 1024 * 2  # bytes (2MiB)
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -176,7 +189,7 @@ class PendingQueue(ConnectOption):
 
 
 @dataclass
-class Flusher(ConnectOption):
+class WithFlusher(ConnectOption):
     queue_size: int = 1024
     timeout: float = 10
 
@@ -186,7 +199,7 @@ class Flusher(ConnectOption):
 
 
 @dataclass
-class TLSCertificate(ConnectOption):
+class WithTLSCertificate(ConnectOption):
     cert_file: str
     key_file: str
     ca_file: str | None = None
@@ -212,7 +225,7 @@ class TLSCertificate(ConnectOption):
 
 
 @dataclass
-class UserPassword(ConnectOption):
+class WithUserPassword(ConnectOption):
     user: str
     password: str
 
@@ -222,7 +235,7 @@ class UserPassword(ConnectOption):
 
 
 @dataclass
-class Username(ConnectOption):
+class WithUsername(ConnectOption):
     user: str
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -230,7 +243,7 @@ class Username(ConnectOption):
 
 
 @dataclass
-class Password(ConnectOption):
+class WithPassword(ConnectOption):
     password: str
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -238,7 +251,7 @@ class Password(ConnectOption):
 
 
 @dataclass
-class Token(ConnectOption):
+class WithToken(ConnectOption):
     token: str
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -246,7 +259,7 @@ class Token(ConnectOption):
 
 
 @dataclass
-class CredentialsFile(ConnectOption):
+class WithCredentialsFile(ConnectOption):
     filepath: str
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -257,7 +270,7 @@ class CredentialsFile(ConnectOption):
 
 
 @dataclass
-class NKeySeed(ConnectOption):
+class WithNKeySeed(ConnectOption):
     seed: str
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -265,7 +278,7 @@ class NKeySeed(ConnectOption):
 
 
 @dataclass
-class NKeyFile(ConnectOption):
+class WithNKeyFile(ConnectOption):
     filepath: str
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -276,7 +289,7 @@ class NKeyFile(ConnectOption):
 
 
 @dataclass
-class SignatureCallback(ConnectOption):
+class WithSignatureCallback(ConnectOption):
     callback: Callable[[str], bytes]
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -284,7 +297,7 @@ class SignatureCallback(ConnectOption):
 
 
 @dataclass
-class UserJwtCallback(ConnectOption):
+class WithUserJwtCallback(ConnectOption):
     callback: Callable[[], bytearray | bytes]
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -292,7 +305,7 @@ class UserJwtCallback(ConnectOption):
 
 
 @dataclass
-class NKeySeedAndJwt(ConnectOption):
+class WithNKeySeedAndJwt(ConnectOption):
     seed: str
     jwt: str
 
@@ -305,19 +318,19 @@ class NKeySeedAndJwt(ConnectOption):
 
 
 @dataclass
-class NkeyFileAndJwtFile(ConnectOption):
+class WithNkeyFileAndJwtFile(ConnectOption):
     nkey_file: str
     jwt_file: str
 
     def apply(self, opts: ConnectOpts) -> None:
-        return NKeySeedAndJwt(
+        return WithNKeySeedAndJwt(
             Path(self.nkey_file).read_text(),
             Path(self.jwt_file).read_text(),
         ).apply(opts)
 
 
 @dataclass
-class OnError(ConnectOption):
+class WithErrorCallback(ConnectOption):
     callback: Callable[[Exception], Awaitable[None]]
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -325,7 +338,7 @@ class OnError(ConnectOption):
 
 
 @dataclass
-class OnDisconnection(ConnectOption):
+class WithDisconnectedCallback(ConnectOption):
     callback: Callable[[], Awaitable[None]]
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -333,7 +346,7 @@ class OnDisconnection(ConnectOption):
 
 
 @dataclass
-class OnReconnection(ConnectOption):
+class WithReconnectedCallback(ConnectOption):
     callback: Callable[[], Awaitable[None]]
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -341,7 +354,7 @@ class OnReconnection(ConnectOption):
 
 
 @dataclass
-class OnConnectionClosed(ConnectOption):
+class WithConnectionClosedCallback(ConnectOption):
     callback: Callable[[], Awaitable[None]]
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -349,7 +362,7 @@ class OnConnectionClosed(ConnectOption):
 
 
 @dataclass
-class OnDiscoveredServer(ConnectOption):
+class WithServerDiscoveredCallback(ConnectOption):
     callback: Callable[[], Awaitable[None]]
 
     def apply(self, opts: ConnectOpts) -> None:
@@ -357,7 +370,7 @@ class OnDiscoveredServer(ConnectOption):
 
 
 @dataclass
-class Callbacks(ConnectOption):
+class WithCallbacks(ConnectOption):
     on_error: Callable[[Exception], Awaitable[None]] | None = None
     on_disconnection: Callable[[], Awaitable[None]] | None = None
     on_connection_closed: Callable[[], Awaitable[None]] | None = None

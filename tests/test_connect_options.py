@@ -14,14 +14,14 @@ class TestConnectOptions:
         self.connection = Connection()
 
     def test_server_option(self):
-        conn = self.connection.with_options(options.Server("nats://localhost:4223"))
+        conn = self.connection.configure(options.WithServer("nats://localhost:4223"))
         assert conn.options == options.ConnectOpts(
             servers="nats://localhost:4223",
         )
 
     def test_servers_option(self):
-        conn = self.connection.with_options(
-            options.Servers(["nats://localhost:4222", "nats://localhost:4223"])
+        conn = self.connection.configure(
+            options.WithServers(["nats://localhost:4222", "nats://localhost:4223"])
         )
         assert conn.options == options.ConnectOpts(
             servers=[
@@ -31,67 +31,67 @@ class TestConnectOptions:
         )
 
     def test_name_option(self):
-        conn = self.connection.with_options(options.ConnectionName("test-client"))
+        conn = self.connection.configure(options.WithConnectionName("test-client"))
         assert conn.options == options.ConnectOpts(name="test-client")
 
     def test_dont_randomize_option(self):
-        conn = self.connection.with_options(options.DontRandomize())
+        conn = self.connection.configure(options.WithDeterministicServers())
         assert conn.options == options.ConnectOpts(dont_randomize=True)
 
     def test_str_inbox_prefix_option(self):
-        conn = self.connection.with_options(options.InboxPrefix("MYINBOX."))
+        conn = self.connection.configure(options.WithInboxPrefix("MYINBOX."))
         assert conn.options == options.ConnectOpts(inbox_prefix=b"MYINBOX.")
 
     def test_bytes_inbox_prefix_option(self):
-        conn = self.connection.with_options(options.InboxPrefix(b"MYINBOX."))
+        conn = self.connection.configure(options.WithInboxPrefix(b"MYINBOX."))
         assert conn.options == options.ConnectOpts(inbox_prefix=b"MYINBOX.")
 
     def test_pedantic_option(self):
-        conn = self.connection.with_options(options.Pedantic())
+        conn = self.connection.configure(options.WithPedanticMode())
         assert conn.options == options.ConnectOpts(pedantic=True)
 
     def test_verbose_option(self):
-        conn = self.connection.with_options(options.Verbose())
+        conn = self.connection.configure(options.WithVerboseLogging())
         assert conn.options == options.ConnectOpts(verbose=True)
 
     def test_no_echo_option(self):
-        conn = self.connection.with_options(options.NoEcho())
+        conn = self.connection.configure(options.WithNoEcho())
         assert conn.options == options.ConnectOpts(no_echo=True)
 
     def test_connect_timeout(self):
-        conn = self.connection.with_options(options.ConnectTimeout(10))
+        conn = self.connection.configure(options.WithConnectTimeout(10))
         assert conn.options == options.ConnectOpts(connect_timeout=10)
 
     def test_allow_reconnect_option_with_defaults(self):
-        conn = self.connection.with_options(options.AllowReconnect())
+        conn = self.connection.configure(options.WithAllowReconnect())
         assert conn.options == options.ConnectOpts(
             allow_reconnect=True, max_reconnect_attempts=-1, reconnect_time_wait=2
         )
 
     def test_allow_reconnect_option_with_max_reconnect_attempts(self):
-        conn = self.connection.with_options(options.AllowReconnect(max_attempts=10))
+        conn = self.connection.configure(options.WithAllowReconnect(max_attempts=10))
         assert conn.options == options.ConnectOpts(
             allow_reconnect=True, max_reconnect_attempts=10, reconnect_time_wait=2
         )
 
     def test_allow_reconnect_option_with_delay(self):
-        conn = self.connection.with_options(options.AllowReconnect(delay_seconds=20))
+        conn = self.connection.configure(options.WithAllowReconnect(delay_seconds=20))
         assert conn.options == options.ConnectOpts(
             allow_reconnect=True, max_reconnect_attempts=-1, reconnect_time_wait=20
         )
 
     def test_pending_queue_option_with_max_bytes(self):
-        conn = self.connection.with_options(options.PendingQueue(max_bytes=20))
+        conn = self.connection.configure(options.WithPendingQueue(max_bytes=20))
         assert conn.options == options.ConnectOpts(pending_size=20)
 
     def test_flusher_option_with_queue_size(self):
-        conn = self.connection.with_options(options.Flusher(queue_size=30))
+        conn = self.connection.configure(options.WithFlusher(queue_size=30))
         assert conn.options == options.ConnectOpts(
             flusher_queue_size=30, flush_timeout=10
         )
 
     def test_flusher_option_with_timeout(self):
-        conn = self.connection.with_options(options.Flusher(timeout=60))
+        conn = self.connection.configure(options.WithFlusher(timeout=60))
         assert conn.options == options.ConnectOpts(
             flusher_queue_size=1024, flush_timeout=60
         )
@@ -101,8 +101,8 @@ class TestConnectOptions:
         client_crt: str,
         client_key: str,
     ):
-        conn = self.connection.with_options(
-            options.TLSCertificate(cert_file=client_crt, key_file=client_key)
+        conn = self.connection.configure(
+            options.WithTLSCertificate(cert_file=client_crt, key_file=client_key)
         )
         assert conn.options.tls is not None
 
@@ -112,8 +112,8 @@ class TestConnectOptions:
         client_key: str,
         ca_crt: str,
     ):
-        conn = self.connection.with_options(
-            options.TLSCertificate(
+        conn = self.connection.configure(
+            options.WithTLSCertificate(
                 cert_file=client_crt, key_file=client_key, ca_file=ca_crt
             )
         )
@@ -126,8 +126,8 @@ class TestConnectOptions:
         client_key: str,
         ca_crt: str,
     ):
-        conn = self.connection.with_options(
-            options.TLSCertificate(
+        conn = self.connection.configure(
+            options.WithTLSCertificate(
                 cert_file=client_crt,
                 key_file=client_key,
                 ca_file=ca_crt,
@@ -138,42 +138,42 @@ class TestConnectOptions:
         assert conn.options.tls_hostname == "test-server.example.org"
 
     def test_user_password_option(self):
-        conn = self.connection.with_options(
-            options.UserPassword(user="test-user", password="test-password")
+        conn = self.connection.configure(
+            options.WithUserPassword(user="test-user", password="test-password")
         )
         assert conn.options.user == "test-user"
         assert conn.options.password == "test-password"
 
     def test_username_option(self):
-        conn = self.connection.with_options(options.Username("test-user"))
+        conn = self.connection.configure(options.WithUsername("test-user"))
         assert conn.options.user == "test-user"
 
     def test_password_option(self):
-        conn = self.connection.with_options(options.Password("test-password"))
+        conn = self.connection.configure(options.WithPassword("test-password"))
         assert conn.options.password == "test-password"
 
     def test_token_option(self):
-        conn = self.connection.with_options(options.Token("test-token"))
+        conn = self.connection.configure(options.WithToken("test-token"))
         assert conn.options.token == "test-token"
 
     def test_credentials_file_option(self, temporary_file: str):
-        conn = self.connection.with_options(options.CredentialsFile(temporary_file))
+        conn = self.connection.configure(options.WithCredentialsFile(temporary_file))
         assert conn.options.user_credentials == temporary_file
 
     def test_nkey_seed_option(self):
-        conn = self.connection.with_options(options.NKeySeed("test-nkey"))
+        conn = self.connection.configure(options.WithNKeySeed("test-nkey"))
         assert conn.options.nkeys_seed == "test-nkey"
 
     def test_nkey_file_option(self, temporary_file: str):
         Path(temporary_file).write_text("test-nkey")
-        conn = self.connection.with_options(options.NKeyFile(temporary_file))
+        conn = self.connection.configure(options.WithNKeyFile(temporary_file))
         assert conn.options.nkeys_seed == "test-nkey"
 
     def test_signature_callback_option(self):
         def callback(value: str) -> bytes:
             return value.upper().encode()
 
-        conn = self.connection.with_options(options.SignatureCallback(callback))
+        conn = self.connection.configure(options.WithSignatureCallback(callback))
         assert conn.options.signature_cb
         assert conn.options.signature_cb("test") == b"TEST"
 
@@ -181,13 +181,13 @@ class TestConnectOptions:
         def callback() -> bytes:
             return b"test-jwt"
 
-        conn = self.connection.with_options(options.UserJwtCallback(callback))
+        conn = self.connection.configure(options.WithUserJwtCallback(callback))
         assert conn.options.user_jwt_cb
         assert conn.options.user_jwt_cb() == b"test-jwt"
 
     def test_nkey_seed_and_jwt_option(self):
-        conn = self.connection.with_options(
-            options.NKeySeedAndJwt(
+        conn = self.connection.configure(
+            options.WithNKeySeedAndJwt(
                 seed="SUACSSL3UAHUDXKFSNVUZRF5UHPMWZ6BFDTJ7M6USDXIEDNPPQYYYCU3VY",
                 jwt="test-jwt",
             )
@@ -201,8 +201,8 @@ class TestConnectOptions:
 
     def test_nkey_file_and_jwt_file_option(self, temporary_file: str, nkey_file: str):
         Path(temporary_file).write_text("test-jwt")
-        conn = self.connection.with_options(
-            options.NkeyFileAndJwtFile(nkey_file=nkey_file, jwt_file=temporary_file)
+        conn = self.connection.configure(
+            options.WithNkeyFileAndJwtFile(nkey_file=nkey_file, jwt_file=temporary_file)
         )
         assert conn.options.user_jwt_cb
         assert conn.options.user_jwt_cb() == b"test-jwt"
@@ -220,7 +220,7 @@ class TestConnectOptions:
                 self.received = exc
 
         spy = Spy()
-        conn = self.connection.with_options(options.OnError(spy))
+        conn = self.connection.configure(options.WithErrorCallback(spy))
         assert conn.options.error_cb
         exc = Exception("test")
         await conn.options.error_cb(exc)
@@ -235,7 +235,7 @@ class TestConnectOptions:
                 self.called = True
 
         spy = Spy()
-        conn = self.connection.with_options(options.OnDisconnection(spy))
+        conn = self.connection.configure(options.WithDisconnectedCallback(spy))
         assert conn.options.disconnected_cb
         await conn.options.disconnected_cb()
         assert spy.called is True
@@ -249,7 +249,7 @@ class TestConnectOptions:
                 self.called = True
 
         spy = Spy()
-        conn = self.connection.with_options(options.OnConnectionClosed(spy))
+        conn = self.connection.configure(options.WithConnectionClosedCallback(spy))
         assert conn.options.closed_cb
         await conn.options.closed_cb()
         assert spy.called is True
@@ -263,7 +263,7 @@ class TestConnectOptions:
                 self.called = True
 
         spy = Spy()
-        conn = self.connection.with_options(options.OnDiscoveredServer(spy))
+        conn = self.connection.configure(options.WithServerDiscoveredCallback(spy))
         assert conn.options.discovered_server_cb
         await conn.options.discovered_server_cb()
         assert spy.called is True
@@ -277,7 +277,7 @@ class TestConnectOptions:
                 self.called = True
 
         spy = Spy()
-        conn = self.connection.with_options(options.OnReconnection(spy))
+        conn = self.connection.configure(options.WithReconnectedCallback(spy))
         assert conn.options.reconnected_cb
         await conn.options.reconnected_cb()
         assert spy.called is True
@@ -307,8 +307,8 @@ class TestConnectOptions:
                 self.reconnected_called = True
 
         spy = Spy()
-        conn = self.connection.with_options(
-            options.Callbacks(
+        conn = self.connection.configure(
+            options.WithCallbacks(
                 on_error=spy.error,
                 on_disconnection=spy.disconnected,
                 on_connection_closed=spy.closed,

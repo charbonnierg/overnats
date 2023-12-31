@@ -31,7 +31,15 @@ class StreamManager:
         subject: str | None = None,
         offset: int | None = None,
     ) -> list[Stream]:
-        """List all Streams."""
+        """List all Streams.
+
+        Args:
+            subject: return only streams matching this subject
+            offset: offset to start from
+
+        Returns:
+            A list of streams as python objects
+        """
         response = await self.client.list_streams(
             subject=subject,
             offset=offset,
@@ -46,7 +54,15 @@ class StreamManager:
         subject: str | None = None,
         offset: int | None = None,
     ) -> list[str]:
-        """List all Stream names."""
+        """List all Stream names.
+
+        Args:
+            subject: return only names of streams matching this subject
+            offset: offset to start from
+
+        Returns:
+            A list of stream names
+        """
         response = await self.client.list_streams(
             subject=subject,
             offset=offset,
@@ -54,11 +70,31 @@ class StreamManager:
         return [info.config.name for info in response.streams if info.config.name]
 
     async def delete(self, stream_name: str) -> None:
-        """Delete a Stream by name."""
+        """Delete a Stream by name.
+
+        Args:
+            stream_name: name of the stream to delete
+
+        Raises:
+            JetStreamAPIException: if the NATS server returns an error
+
+        Returns:
+            None. The stream is guaranteed to be deleted if no exception is raised.
+        """
         await self.client.delete_stream(stream_name=stream_name)
 
     async def get(self, stream_name: str) -> Stream:
-        """Get a Stream by name."""
+        """Get a Stream by name.
+
+        Args:
+            stream_name: name of the stream to get
+
+        Raises:
+            JetStreamAPIException: if the NATS server returns an error
+
+        Returns:
+            The stream as a python object
+        """
         stream_info_response = await self.client.get_stream_info(
             stream_name=stream_name
         )
@@ -99,7 +135,47 @@ class StreamManager:
         discard_new_per_subject: bool | None = None,
         metadata: dict[str, str] | None = None,
     ) -> Stream:
-        """Create a new Stream."""
+        """Create a new Stream.
+
+        Args:
+            name: name of the stream
+            subjects: list of subjects the stream will accept
+            retention: retention policy
+            max_consumers: maximum number of consumers
+            max_msgs: maximum number of messages
+            max_bytes: maximum number of bytes
+            max_age: maximum age of messages
+            storage: storage policy
+            num_replicas: number of replicas
+            duplicate_window: duplicate window
+            description: description
+            subject_transform: subject transform
+            max_msgs_per_subject: maximum number of messages per subject
+            max_msg_size: maximum message size
+            compression: compression policy
+            first_seq: first sequence
+            no_ack: no acknowledgement
+            discard: discard policy
+            placement: placement policy
+            mirror: mirror policy
+            sources: list of sources
+            sealed: sealed
+            deny_delete: deny delete
+            deny_purge: deny purge
+            allow_rollup_hdrs: allow rollup headers
+            allow_direct: allow direct
+            mirror_direct: mirror direct
+            republish: republish policy
+            discard_new_per_subject: discard new per subject
+            metadata: metadata
+
+        Raises:
+            ValueError: if the stream name is not set in the configuration
+            JetStreamAPIException: if the NATS server returns an error
+
+        Returns:
+            The created stream as a python object
+        """
         stream_config = StreamConfig.new(
             name=name,
             subjects=subjects,
@@ -135,7 +211,18 @@ class StreamManager:
         return await self.create_from_config(stream_config=stream_config)
 
     async def create_from_config(self, stream_config: StreamConfig) -> Stream:
-        """Create a new Stream."""
+        """Create a new Stream.
+
+        Args:
+            stream_config: the stream configuration
+
+        Raises:
+            ValueError: if the stream name is not set in the configuration
+            JetStreamAPIException: if the NATS server returns an error
+
+        Returns:
+            The created stream as a python object
+        """
         names = await self.list_names()
         if stream_config.name in names:
             raise JetStreamAPIException(
@@ -153,7 +240,18 @@ class StreamManager:
         )
 
     async def configure(self, stream_config: StreamConfig) -> Stream:
-        """Get, create or update a stream according to given configuration."""
+        """Get, create or update a stream according to given configuration.
+
+        Args:
+            stream_config: the stream configuration
+
+        Raises:
+            ValueError: if the stream name is not set in the configuration
+            JetStreamAPIException: if the NATS server returns an error
+
+        Returns:
+            The stream as a python object
+        """
         if not stream_config.name:
             raise ValueError("Stream name is required")
         try:
@@ -174,7 +272,26 @@ class StreamManager:
         chunk_size: int = 1024,
         no_consumers: bool | None = None,
     ) -> StreamMeta:
-        """Backup a stream."""
+        """Backup a stream.
+
+        This method accepts a function to write chunks of data. Data is a tar
+        archive of the stream compressed using Snappy algorithm. It must not
+        be modified as it is checked by the server. The function should
+        write the data to a file or send it to a remote server in an efficient
+        way.
+
+        Args:
+            stream_name: name of the stream to backup
+            chunks_writer: a function to write chunks of data
+            chunk_size: size of the chunks
+            no_consumers: if True, consumers are not backed up
+
+        Raises:
+            JetStreamAPIException: if the NATS server returns an error
+
+        Returns:
+            The stream meta data. It contains the stream configuration and state.
+        """
         nc = self.client.typed.connection
         deliver_subject = nc.client.new_inbox()
         sub = await nc.client.subscribe(  # pyright: ignore[reportUnknownMemberType]
@@ -202,7 +319,24 @@ class StreamManager:
         stream_meta: StreamMeta,
         chunks_reader: AsyncIterator[bytes],
     ) -> Stream:
-        """Restore a stream."""
+        """Restore a stream.
+
+        This method accepts an async iterator to read chunks of data. Data is a tar
+        archive of the stream compressed using Snappy algorithm. It must not
+        be modified as it is checked by the server. The iterator should
+        read the data from a file or receive it from a remote server in an efficient
+        way.
+
+        Args:
+            stream_meta: stream meta data. It contains the stream configuration and state.
+            chunks_reader: an async iterator to read chunks of data
+
+        Raises:
+            JetStreamAPIException: if the NATS server returns an error
+
+        Returns:
+            The restored stream as a python object
+        """
         if not stream_meta.config.name:
             raise ValueError("Stream name is required")
         resp = await self.client.restore_stream(
@@ -230,6 +364,22 @@ class StreamManager:
         chunk_size: int = 1024,
         no_consumers: bool | None = None,
     ) -> StreamMeta:
+        """Backup a stream to a directory in local filesystem.
+
+        Args:
+            stream_name: name of the stream to backup
+            output_directory: directory where to store the backup
+            archive_file: name of the archive file
+            meta_file: name of the meta file
+            chunk_size: size of the chunks
+            no_consumers: if True, consumers are not backed up
+
+        Raises:
+            JetStreamAPIException: if the NATS server returns an error
+
+        Returns:
+            The stream meta data. It contains the stream configuration and state.
+        """
         output_directory = pathlib.Path(output_directory).expanduser().resolve()
         output_directory.mkdir(parents=True, exist_ok=True)
         archive_filepath = output_directory / (archive_file or f"{stream_name}.tar.s2")
@@ -257,6 +407,21 @@ class StreamManager:
         meta_file: str | None = None,
         chunk_size: int = 1024,
     ) -> Stream:
+        """Restore a stream from a directory in local filesystem.
+
+        Args:
+            stream_name: name of the stream to restore
+            directory: directory where to find the backup
+            archive_file: name of the archive file
+            meta_file: name of the meta file
+            chunk_size: size of the chunks
+
+        Raises:
+            JetStreamAPIException: if the NATS server returns an error
+
+        Returns:
+            The restored stream as a python object
+        """
         archive_file = archive_file or f"{stream_name}.tar.s2"
         meta_file = meta_file or f"{stream_name}.meta.json"
         directory = pathlib.Path(directory).expanduser().resolve()
