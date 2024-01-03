@@ -38,7 +38,9 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      check_paths: true
+      base_path: [docs/snippets, "."]
   - pymdownx.superfences
   - pymdownx.magiclink
   - pymdownx.details

@@ -251,6 +251,10 @@ class Consumer:
             push_bound=infos.push_bound,
         )
 
+    async def destroy(self) -> None:
+        """Destroy the consumer."""
+        await self.client.delete_consumer(self.steam_name, self.name)
+
     @classmethod
     def from_consumer_info(
         cls,

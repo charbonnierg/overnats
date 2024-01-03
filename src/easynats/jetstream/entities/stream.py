@@ -126,7 +126,7 @@ class Stream:
         self.client = client
         self.name = stream_name
         self.config = stream_config
-        self.created = created_timestamp
+        self.created_timestamp = created_timestamp
 
     @classmethod
     def from_stream_info(
@@ -165,6 +165,14 @@ class Stream:
         """
         stream_info_response = await self.client.get_stream_info(stream_name=self.name)
         return stream_info_response.state
+
+    async def destroy(self) -> None:
+        """Destroy the stream.
+
+        Returns:
+            None. The stream is guaranteed to be destroyed when this method returns.
+        """
+        await self.client.delete_stream(stream_name=self.name)
 
     async def update(  # noqa: C901
         self,

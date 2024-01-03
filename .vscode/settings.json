@@ -19,6 +19,7 @@
         "**/.devbox": true,
         "**/devbox.lock": true,
         "**/requirements.txt": true,
+        "**/htmlcov": true,
     },
     "editor.formatOnSave": true,
     "[python]": {

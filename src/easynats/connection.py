@@ -25,7 +25,7 @@ from . import micro
 from .channel import Command, ErrorT, Event, MessageT, ParamsT, ReplyT
 from .core import Msg, Reply, SubscriptionHandler, SubscriptionIterator
 from .jetstream.api import JetStreamClient
-from .jetstream.manager import StreamManager
+from .jetstream.manager import KVManager, StreamManager
 from .options import ConnectOption, ConnectOpts, JetStreamOpts, MicroOpts
 
 T = TypeVar("T")
@@ -319,7 +319,7 @@ class Connection:
         self,
         subject: str,
         reply_subject: str,
-        payload: bytes,
+        payload: bytes | None = None,
         headers: dict[str, str] | None = None,
     ) -> None:
         """Send a request indicating a reply subject and do not wait for a reply.
@@ -342,7 +342,7 @@ class Connection:
         await self.client.publish(
             subject=subject,
             reply=reply_subject,
-            payload=payload,
+            payload=payload or b"",
             headers=headers,
         )
 
@@ -547,6 +547,9 @@ class JetStreamConnection:
     streams: StreamManager
     """The [stream manager][easynats.jetstream.manager.StreamManager] which can be used to manage streams."""
 
+    kv: KVManager
+    """The [key-value manager][easynats.jetstream.manager.KVManager] which can be used to manage key-value stores."""
+
     def __init__(
         self, connection: Connection, options: JetStreamOpts | None = None
     ) -> None:
@@ -556,6 +559,7 @@ class JetStreamConnection:
             self._connection, api_prefix=self.options.get_api_prefix()
         )
         self.streams = StreamManager(self._client)
+        self.kv = KVManager(self._client)
 
     def configure(self, *options: JetStreamOption) -> Self:
         """Apply JetStream options to a new `JetStreamConnection` instance.
