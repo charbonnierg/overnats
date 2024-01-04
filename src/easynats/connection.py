@@ -12,100 +12,62 @@ It is the main entry point for using easynats. It provides methods for:
 from __future__ import annotations
 
 from contextlib import AsyncExitStack
-from dataclasses import dataclass, replace
-from typing import Any, Awaitable, Callable, Generic, TypeVar
+from dataclasses import replace
 
 from nats.aio.client import Client as NatsClient
 from typing_extensions import Self
 
-from easynats.options.jetstream_opts import JetStreamOption
-from easynats.options.micro_opts import MicroOption
-
-from . import micro
-from .channel import Command, ErrorT, Event, MessageT, ParamsT, ReplyT
-from .core import Msg, Reply, SubscriptionHandler, SubscriptionIterator
-from .jetstream.api import JetStreamClient
-from .jetstream.manager import KVManager, StreamManager
-from .options import ConnectOption, ConnectOpts, JetStreamOpts, MicroOpts
-
-T = TypeVar("T")
-
-
-@dataclass
-class TypedReply(Generic[ParamsT, ReplyT, ErrorT]):
-    """The reply of request."""
-
-    success: bool
-    """Whether the reply is a success or an error."""
-    payload: ReplyT | ErrorT
-    """The reply data."""
-    headers: dict[str, str]
-    """The reply headers."""
-
-    def get_error(self) -> ErrorT | None:
-        """Get the error payload or None if reply is a success."""
-        if not self.success:
-            return self.payload  # type: ignore
-
-    def get_data(self) -> ReplyT | None:
-        """Get the data payload or None if reply is an error."""
-        if self.success:
-            return self.payload  # type: ignore
-
-    def error(self) -> ErrorT:
-        """Get the error payload or raise an exception if reply is a success."""
-        if self.success:
-            raise RuntimeError("Reply is not an error")
-        return self.payload  # type: ignore
-
-    def data(self) -> ReplyT:
-        """Get the data payload or raise an exception if reply is an error."""
-        if not self.success:
-            raise RuntimeError("Reply is not a success")
-        return self.payload  # type: ignore
-
-    @classmethod
-    def create(
-        cls, command: Command[ParamsT, Any, ReplyT, ErrorT], reply: Reply
-    ) -> TypedReply[ParamsT, ReplyT, ErrorT]:
-        """Create a typed reply from a command and a reply."""
-        success = command.is_success(reply)
-        if success:
-            reply_data = command.decode_reply(reply.payload)
-        else:
-            reply_data = command.decode_error(reply.payload)
-        return cls(
-            success=success,
-            payload=reply_data,
-            headers=reply.headers,
-        )
+from .core import CoreClient
+from .jetstream import JetStreamClient
+from .micro import MicroClient
+from .options import (
+    ConnectOption,
+    ConnectOpts,
+    JetStreamOption,
+    JetStreamOpts,
+    MicroOption,
+    MicroOpts,
+)
+from .typed.client import TypedClient
 
 
 class Connection:
     """An [`NatsConnection`][easynats.connection.Connection] is a wrapper around a NATS client.
 
     It accepts connect options at initialization and provides the
-    [`with_options() method`][easynats.connection.Connection.configure] to apply connect options after initialization.
+    [`configure() method`][easynats.connection.Connection.configure] to apply connect options after initialization.
 
     An [`NatsConnection`][easynats.connection.Connection] can be used as an asynchronous context manager
     to automatically open and close the connection.
     """
 
-    def __init__(self, options: ConnectOpts | None = None) -> None:
+    def __init__(
+        self,
+        options: ConnectOpts | None = None,
+        jetstream_options: JetStreamOpts | None = None,
+        micro_options: MicroOpts | None = None,
+    ) -> None:
         """Create a new `NatsConnection` out of connect options.
-
-        It's possible to omit the connect options, as they can be applied
-        later using the `NatsConnection.with_options` method.
 
         Args:
             options: Connect options to use. If not provided, the default
                 options are used.
+            jetstream_options: JetStream options to use. If not provided, the default
+                options are used.
+            micro_options: Micro options to use. If not provided, the default
+                options are used.
         """
         self.options = options or ConnectOpts()
-        self._nats_client_or_none: NatsClient | None = None
+        self.jetstream_options = jetstream_options or JetStreamOpts()
+        self.micro_options = micro_options or MicroOpts()
+        self._natspy_client_or_none: NatsClient | None = None
+        self._core_client_or_none: CoreClient | None = None
+        self._jetstream_client_or_none: JetStreamClient | None = None
+        self._micro_client_or_none: MicroClient | None = None
+        self._typed_client_or_none: TypedClient | None = None
         self._stack_or_none: AsyncExitStack | None = None
 
-    def configure(self, *option: ConnectOption) -> Self:
+    def configure(self, *option: ConnectOption | JetStreamOption | MicroOption) -> Self:
         """Apply connect options to a new `NatsConnection` instance.
 
         This method returns a new `NatsConnection` instance with the
@@ -128,30 +90,25 @@ class Connection:
             raise RuntimeError(
                 "Cannot apply connect options after connection is opened."
             )
-        conn = self.__class__(replace(self.options))
+        conn = self.__class__(
+            options=replace(self.options),
+            jetstream_options=replace(self.jetstream_options),
+        )
         for opt in option:
-            opt(conn.options)
+            if isinstance(opt, ConnectOption):
+                opt(conn.options)
+            elif isinstance(opt, MicroOption):
+                opt(conn.micro_options)
+            elif isinstance(
+                opt, JetStreamOption
+            ):  # pyright: ignore[reportUnnecessaryIsInstance]
+                opt(conn.jetstream_options)
+            else:
+                raise TypeError(f"Invalid option type: {type(opt)}")
         return conn
 
     @property
-    def client(self) -> NatsClient:
-        """Access the underlying NATS client.
-
-        This method can only be called after the connection is opened,
-        otherwise a `RuntimeError` is raised.
-
-        Raises:
-            RuntimeError: If the connection is not opened.
-
-        Returns:
-            The underlying NATS client.
-        """
-        if self._nats_client_or_none is None:
-            raise RuntimeError("Connection not open")
-        return self._nats_client_or_none
-
-    @property
-    def stack(self) -> AsyncExitStack:
+    def exit_stack(self) -> AsyncExitStack:
         """Access the underlying AsyncExitStack.
 
         This method can only be called after the connection is opened,
@@ -167,69 +124,87 @@ class Connection:
             raise RuntimeError("Connection not open")
         return self._stack_or_none
 
-    def jetstream(
-        self,
-        options: JetStreamOpts | JetStreamOption | None = None,
-        *opts: JetStreamOption,
-    ) -> JetStreamConnection:
-        """Create a new JetStream connection on top of this NATS connection.
+    @property
+    def nats_client(self) -> NatsClient:
+        """Access the underlying NATS client.
 
-        Args:
-            options: JetStream options to use. If not provided, the default
-                options are used.
-            *opts: Additional JetStream options to use.
+        This method can only be called after the connection is opened,
+        otherwise a `RuntimeError` is raised.
+
+        Raises:
+            RuntimeError: If the connection is not opened.
 
         Returns:
-            A new NATS JetStream connection.
+            The underlying NATS client.
+        """
+        if self._natspy_client_or_none is None:
+            raise RuntimeError("Connection not open")
+        return self._natspy_client_or_none
+
+    @property
+    def core(self) -> CoreClient:
+        """Access the underlying core client.
+
+        This method can only be called after the connection is opened,
+        otherwise a `RuntimeError` is raised.
+
+        Raises:
+            RuntimeError: If the connection is not opened.
+
+        Returns:
+            The underlying core client.
+
+        See also:
+            [`easynats.options.connect_opts`][easynats.options.connect_opts] for a list of available connect options.
+        """
+        if self._core_client_or_none is None:
+            if self._natspy_client_or_none is None:
+                raise RuntimeError("Connection not open")
+            self._core_client_or_none = CoreClient(self._natspy_client_or_none)
+        return self._core_client_or_none
+
+    @property
+    def jetstream(self) -> JetStreamClient:
+        """Access the JetStream client on top of this NATS connection.
+
+        Returns:
+            A NATS JetStream client.
 
         See also:
             [`easynats.options.jetstream_opts`][easynats.options.jetstream_opts] for a list of available JetStream options.
         """
-        if isinstance(options, JetStreamOption):
-            opts = (options,) + opts
-            options = None
-        if options is None:
-            options = JetStreamOpts()
-        for opt in opts:
-            opt(options)
-        return JetStreamConnection(self, options)
+        if self._jetstream_client_or_none is None:
+            self._jetstream_client_or_none = JetStreamClient(
+                self, self.jetstream_options
+            )
+        return self._jetstream_client_or_none
 
-    def micro(
-        self,
-        options: MicroOpts | MicroOption | None = None,
-        *opts: MicroOption,
-    ) -> MicroConnection:
-        """Create a new Micro connection on top of this NATS connection.
-
-        Args:
-            options: Micro options to use. If not provided, the default
-                options are used.
-            *opts: Additional Micro options to use.
+    @property
+    def micro(self) -> MicroClient:
+        """Access the Micro client on top of this NATS connection.
 
         Returns:
-            A new NATS Micro connection.
+            A NATS Micro client.
 
         See also:
             [`easynats.options.micro_opts`][easynats.options.micro_opts] for a list of available Micro options.
         """
-        if isinstance(options, MicroOption):
-            opts = (options,) + opts
-            options = None
-        if options is None:
-            options = MicroOpts()
-        for opt in opts:
-            opt(options)
-        return MicroConnection(self, options)
+        if self._micro_client_or_none is None:
+            self._micro_client_or_none = MicroClient(self, self.micro_options)
+        return self._micro_client_or_none
 
-    def typed(self) -> TypedConnection:
-        """Create a new typed connection on top of this NATS connection.
+    @property
+    def typed(self) -> TypedClient:
+        """Create a new typed client on top of this NATS connection.
 
-        A [`TypedConnection`][easynats.connection.TypedConnection] provides methods for publishing and requesting typed messages.
+        A [`TypedClient`][easynats.typed.client.TypedClient] provides methods for publishing and requesting typed messages.
 
         Returns:
-            A new typed connection.
+            A new typed client.
         """
-        return TypedConnection(self)
+        if self._typed_client_or_none is None:
+            self._typed_client_or_none = TypedClient(self)
+        return self._typed_client_or_none
 
     async def open(self) -> None:
         """Open the connection to the NATS server.
@@ -243,9 +218,9 @@ class Connection:
         if self._stack_or_none is not None:
             raise RuntimeError("Connection already opened")
         self._stack_or_none = AsyncExitStack()
-        self._nats_client_or_none = NatsClient()
-        await self.client.connect(**self.options.to_dict())
-        self._stack_or_none.push_async_callback(self.client.drain)
+        self._natspy_client_or_none = NatsClient()
+        await self.nats_client.connect(**self.options.to_dict())
+        self._stack_or_none.push_async_callback(self.nats_client.drain)
 
     async def close(self) -> None:
         """Close the connection to the NATS server.
@@ -256,123 +231,7 @@ class Connection:
         Raises:
             RuntimeError: If the connection is not opened.
         """
-        await self.stack.aclose()
-
-    async def publish(
-        self,
-        subject: str,
-        payload: bytes | None = None,
-        headers: dict[str, str] | None = None,
-    ) -> None:
-        """Publish a message to a subject.
-
-        This method can only be called after the connection is opened,
-        otherwise a `RuntimeError` is raised.
-
-        Args:
-            subject: The subject to publish to.
-            payload: The message payload. If `None`, an empty payload (`b""`) is used.
-            headers: The message headers. If `None`, no headers are used.
-
-        Raises:
-            RuntimeError: If the connection is not opened.
-
-        Returns:
-            None. The message is published asynchronously, and it is possible that message is never published in some cases.
-        """
-        await self.client.publish(
-            subject=subject,
-            payload=payload or b"",
-            headers=headers,
-        )
-
-    async def request(
-        self,
-        subject: str,
-        payload: bytes | None = None,
-        headers: dict[str, str] | None = None,
-        timeout: float | None = None,
-    ) -> Reply:
-        """Send a request and wait for a reply.
-
-        This method can only be called after the connection is opened,
-        otherwise a `RuntimeError` is raised.
-
-        Args:
-            subject: The subject to send the request to.
-            payload: The request payload. If `None`, an empty payload (`b""`) is used.
-            headers: The request headers. If `None`, no headers are used.
-
-        Raises:
-            RuntimeError: If the connection is not opened.
-            TimeoutError: If the request times out (if no reply is received within the timeout duration)
-
-        Returns:
-            The reply with optional data and headers.
-        """
-        msg = await self.client.request(
-            subject, payload or b"", headers=headers, timeout=timeout or float("inf")
-        )
-        return Reply(msg.reply, msg.subject, msg.data, msg.headers or {})
-
-    async def publish_request(
-        self,
-        subject: str,
-        reply_subject: str,
-        payload: bytes | None = None,
-        headers: dict[str, str] | None = None,
-    ) -> None:
-        """Send a request indicating a reply subject and do not wait for a reply.
-
-        This method can only be called after the connection is opened,
-        otherwise a `RuntimeError` is raised.
-
-        Args:
-            subject: The subject to send the request to.
-            reply_subject: The subject to use for the reply. The receiver of the request will send the reply to this subject.
-            payload: The request payload. If `None`, an empty payload (`b""`) is used.
-            headers: The request headers. If `None`, no headers are used.
-
-        Raises:
-            RuntimeError: If the connection is not opened.
-
-        Returns:
-            None. The message is published asynchronously, and it is possible that message is never published in some cases.
-        """
-        await self.client.publish(
-            subject=subject,
-            reply=reply_subject,
-            payload=payload or b"",
-            headers=headers,
-        )
-
-    def create_subscription_handler(
-        self,
-        subject: str,
-        callback: Callable[[Msg], Awaitable[None]],
-        queue: str | None = None,
-        drain_on_exit: bool = True,
-    ) -> SubscriptionHandler:
-        return SubscriptionHandler(
-            client=self.client,
-            subject=subject,
-            callback=callback,
-            queue=queue,
-            drain_on_exit=drain_on_exit,
-        )
-
-    def create_subscription_iterator(
-        self,
-        subject: str,
-        queue: str | None = None,
-        drain_on_exit: bool = True,
-    ) -> SubscriptionIterator:
-        return SubscriptionIterator(
-            client=self.client,
-            subject=subject,
-            queue=queue,
-            drain_on_exit=drain_on_exit,
-        )
+        await self.exit_stack.aclose()
 
     async def __aenter__(self) -> Connection:
         await self.open()
@@ -380,200 +239,3 @@ class Connection:
 
     async def __aexit__(self, *args: object, **kwargs: object) -> None:
         await self.close()
-
-
-class TypedConnection:
-    """A [`TypedConnection][easynats.connection.TypedConnection]
-    can be used to publish or request typed messages over channels
-    rather than simple subjects.
-
-    Checkout the [channel][easynats.channel] module to learn more
-    about typed connection usage.
-    """
-
-    def __init__(self, connection: Connection) -> None:
-        self.connection = connection
-
-    async def publish_event(
-        self,
-        event_type: Event[ParamsT, MessageT],
-        params: ParamsT,
-        payload: MessageT,
-        headers: dict[str, str] | None = None,
-    ) -> None:
-        """Publish an event.
-
-        Args:
-            event_type: The event type.
-            params: The parameters for the event.
-            payload: The event payload.
-            headers: The event headers.
-
-        Raises:
-            RuntimeError: If the connection is not opened.
-
-        Returns:
-            None. The message is published asynchronously, and it is possible that message is never published in some cases.
-        """
-        await self.connection.publish(
-            subject=event_type.channel.address.get_subject(params),
-            payload=event_type.encode(payload),
-            headers=headers,
-        )
-
-    async def publish_command(
-        self,
-        command_type: Command[ParamsT, MessageT, Any, Any],
-        reply_subject: str,
-        params: ParamsT,
-        payload: MessageT,
-        headers: dict[str, str] | None = None,
-        prefix: str | None = None,
-    ) -> None:
-        """Publish a command.
-
-        Args:
-            command_type: The command type.
-            reply_subject: The subject to use for the reply. The receiver of the command will send the reply to this subject.
-            params: The parameters for the command.
-            payload: The command payload.
-            headers: The command headers.
-
-        Raises:
-            RuntimeError: If the connection is not opened.
-
-        Returns:
-            None. The message is published asynchronously, and it is possible that message is never published in some cases.
-        """
-        subject = command_type.channel.address.get_subject(params)
-        if prefix is not None:
-            subject = prefix + subject
-        await self.connection.publish_request(
-            subject=subject,
-            reply_subject=reply_subject,
-            payload=command_type.encode_request(payload),
-            headers=headers,
-        )
-
-    async def request_command(
-        self,
-        command_type: Command[ParamsT, MessageT, ReplyT, ErrorT],
-        params: ParamsT,
-        payload: MessageT,
-        headers: dict[str, str] | None = None,
-        prefix: str | None = None,
-    ) -> TypedReply[ParamsT, ReplyT, ErrorT]:
-        """Send a command and wait for a reply.
-
-        Args:
-            command_type: The command type.
-            params: The parameters for the command.
-            payload: The command payload.
-            headers: The command headers.
-
-        Raises:
-            RuntimeError: If the connection is not opened.
-            TimeoutError: If the request times out (if no reply is received within the timeout duration)
-
-        Returns:
-            The typed reply with optional headers.
-        """
-        subject = command_type.channel.address.get_subject(params)
-        if prefix is not None:
-            subject = prefix + subject
-        reply = await self.connection.request(
-            subject=subject,
-            payload=command_type.encode_request(payload),
-            headers=headers,
-        )
-        return TypedReply.create(command_type, reply)
-
-
-class MicroConnection:
-    """A high-level interface to NATS Micro."""
-
-    def __init__(self, connection: Connection, opts: MicroOpts | None = None) -> None:
-        self.options = opts or MicroOpts()
-        self.connection = connection
-
-    def configure(self, *options: MicroOption) -> Self:
-        """Apply Micro options to a new `MicroConnection` instance.
-
-        Args:
-            options: Micro options to apply.
-
-        Returns:
-            A new `MicroConnection` instance with the Micro options applied.
-        """
-        opts = replace(self.options)
-        for opt in options:
-            opt(opts)
-        return self.__class__(
-            self.connection,
-            opts,
-        )
-
-    def create_service(
-        self,
-        name: str,
-        version: str,
-        description: str | None = None,
-        metadata: dict[str, str] | None = None,
-    ) -> micro.Service:
-        """Create a new micro service.
-
-        Args:
-            name: The service name.
-            version: The service version.
-            description: The service description.
-            metadata: The service metadata.
-
-        Returns:
-            The micro service.
-        """
-        return micro.create_service(
-            self.connection.client,
-            name,
-            version,
-            description,
-            metadata,
-            self.options.api_prefix,
-        )
-
-
-class JetStreamConnection:
-    """A high-level interface to JetStream."""
-
-    streams: StreamManager
-    """The [stream manager][easynats.jetstream.manager.StreamManager] which can be used to manage streams."""
-
-    kv: KVManager
-    """The [key-value manager][easynats.jetstream.manager.KVManager] which can be used to manage key-value stores."""
-
-    def __init__(
-        self, connection: Connection, options: JetStreamOpts | None = None
-    ) -> None:
-        self.options = options or JetStreamOpts()
-        self._connection = connection
-        self._client = JetStreamClient(
-            self._connection, api_prefix=self.options.get_api_prefix()
-        )
-        self.streams = StreamManager(self._client)
-        self.kv = KVManager(self._client)
-
-    def configure(self, *options: JetStreamOption) -> Self:
-        """Apply JetStream options to a new `JetStreamConnection` instance.
-
-        Args:
-            options: JetStream options to apply.
-
-        Returns:
-            A new `JetStreamConnection` instance with the JetStream options applied.
-        """
-        opts = replace(self.options)
-        for opt in options:
-            opt(opts)
-        return self.__class__(
-            self._connection,
-            opts,
-        )

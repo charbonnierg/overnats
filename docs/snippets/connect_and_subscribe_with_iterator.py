@@ -9,7 +9,7 @@ async def main():
         options.WithConnectTimeout(5),
     ) as nc:
         # Subscribe to messages usng an iterator
-        async with nc.create_subscription_iterator(subject="foo") as sub:
+        async with nc.core.subscribe(subject="foo") as sub:
             # Iterate over messages
             async for msg in sub.messages():
                 # Process message

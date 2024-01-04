@@ -3,7 +3,7 @@ from .connection import Connection
 from .options import ConnectOption, ConnectOpts
 
 
-def connect(*options: ConnectOption) -> Connection:
+def new_connection(*options: ConnectOption) -> Connection:
     """Create a new connection.
 
     This function does NOT open the connection. Instead, use
@@ -33,4 +33,4 @@ def connect(*options: ConnectOption) -> Connection:
     return Connection().configure(*options)
 
 
-__all__ = ["Connection", "ConnectOpts", "ConnectOption", "options", "connect"]
+__all__ = ["Connection", "ConnectOpts", "ConnectOption", "options", "new_connection"]

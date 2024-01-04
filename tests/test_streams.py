@@ -5,8 +5,8 @@ import pytest
 import pytest_asyncio
 
 from easynats.connection import Connection
-from easynats.jetstream.api import Error, JetStreamAPIException, JetStreamClient
-from easynats.jetstream.entities import (
+from easynats.jetstream.api import Error, JetStreamApiClient, JetStreamAPIException
+from easynats.jetstream.sdk import (
     AckPolicy,
     Compression,
     ConsumerConfig,
@@ -20,9 +20,9 @@ from easynats.jetstream.entities import (
     Source,
     Storage,
     StreamConfig,
+    StreamManager,
     SubjectTransform,
 )
-from easynats.jetstream.manager import StreamManager
 
 
 @pytest.mark.asyncio
@@ -30,7 +30,7 @@ class BaseTestStream:
     @pytest_asyncio.fixture(autouse=True)
     async def setup(self):
         self.conn = Connection()
-        self.js_client = JetStreamClient(self.conn)
+        self.js_client = JetStreamApiClient(self.conn)
         self.manager = StreamManager(self.js_client)
         async with self.conn:
             try:

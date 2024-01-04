@@ -8,7 +8,7 @@ from typing import Any, TypeVar
 from nats.aio.client import Client
 from nats.aio.subscription import Subscription
 
-from .requests import (
+from .models.requests import (
     AccountzRequest,
     ConnzRequest,
     GatewayzRequest,
@@ -20,7 +20,7 @@ from .requests import (
     SubszRequest,
     VarzRequest,
 )
-from .responses import (
+from .models.responses import (
     AccountzResponse,
     ConnzResponse,
     GatewayzResponse,

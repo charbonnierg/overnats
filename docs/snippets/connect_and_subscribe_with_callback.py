@@ -15,7 +15,7 @@ async def main():
         options.WithConnectTimeout(5),
     ) as nc:
         # Create a subscription handler
-        sub = nc.create_subscription_handler(
+        sub = nc.core.subscribe_with_callback(
             subject="foo",
             callback=handle_message,
         )

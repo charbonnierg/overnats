@@ -31,8 +31,8 @@ class MicroOption(metaclass=abc.ABCMeta):
             micro = easynats.micro(WithServiceApiPrefix("$SRV.CUSTOM"))
     ```
 
-    It's possible to use the [`configure()` method][easynats.connection.MicroConnection.configure] method on
-    the [`MicroConnection` class][easynats.connection.MicroConnection] to add micro options:
+    It's possible to use the [`configure()` method][easynats.micro.client.MicroClient.configure] method on
+    the [`MicroClient` class][easynats.micro.client.MicroClient] to add micro options:
 
     ```python
         micro = easynats.Connection().micro()

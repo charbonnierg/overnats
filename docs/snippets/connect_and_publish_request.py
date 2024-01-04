@@ -9,15 +9,15 @@ async def main():
         options.WithConnectTimeout(5),
     ) as nc:
         # Publish a message without payload
-        await nc.publish_request(subject="foo", reply_subject="bar")
+        await nc.core.publish_request(subject="foo", reply_subject="bar")
         # Send a request with payload
-        await nc.publish_request(
+        await nc.core.publish_request(
             subject="foo",
             reply_subject="bar",
             payload=b"Hello World!",
         )
         # Publish a request with headers
-        await nc.publish_request(
+        await nc.core.publish_request(
             subject="foo",
             reply_subject="bar",
             payload=b"Hello World!",

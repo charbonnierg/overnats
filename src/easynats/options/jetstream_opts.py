@@ -39,8 +39,8 @@ class JetStreamOption(metaclass=abc.ABCMeta):
             js = easynats.jetstream(WithJetStreamDomain("edge"))
     ```
 
-    It's possible to use the [`configure()` method][easynats.connection.JetStreamConnection.configure] method on
-    the [`JetStreamConnection` class][easynats.connection.JetStreamConnection] to add jetstream options:
+    It's possible to use the [`configure()` method][easynats.jetstream.client.JetStreamClient.configure] method on
+    the [`JetStreamClient` class][easynats.connection.JetStreamClient] to add jetstream options:
 
     ```python
         js = easynats.Connection().jetstream()

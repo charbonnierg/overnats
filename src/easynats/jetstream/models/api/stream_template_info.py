@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import List, Union
 
-from easynats.channel import Channel, Command
+from easynats.typed import Channel, Command
 
 from .api_error import JetStreamApiV1Error
 from .common.stream_template_configuration import StreamTemplateConfiguration

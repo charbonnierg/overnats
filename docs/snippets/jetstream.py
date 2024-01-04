@@ -11,18 +11,17 @@ async def main() -> None:
         options.WithDrainTimeout(10),
         options.WithAllowReconnect(max_attempts=-1),
     ) as nc:
-        # Get a JetStream connection over the NATS connection
-        js = nc.jetstream()
+        stream_manager = nc.jetstream.streams
         # Create a stream
-        await js.streams.create(name="ORDERS", subjects=["ORDERS.>"])
+        await stream_manager.create(name="ORDERS", subjects=["ORDERS.>"])
         # Get all stream names
-        all_stream_names = await js.streams.list_names()
+        all_stream_names = await stream_manager.list_names()
         print(all_stream_names)
         # Get all streams
-        all_streams = await js.streams.list()
+        all_streams = await stream_manager.list()
         print(all_streams)
         # Get one stream
-        stream = await js.streams.get("ORDERS")
+        stream = await stream_manager.get("ORDERS")
         print(stream)
         # Publish a message to the stream
         await stream.publish("ORDERS.1", b"Hello World!")
@@ -35,7 +34,7 @@ async def main() -> None:
             # Acknowledge the message
             await pending.ack()
         # Delete stream
-        await js.streams.delete("ORDERS")
+        await stream_manager.delete("ORDERS")
 
 
 if __name__ == "__main__":

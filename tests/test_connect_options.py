@@ -4,8 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from easynats import options
-from easynats.connection import Connection
+from easynats import Connection, options
 
 
 class TestConnectOptions:

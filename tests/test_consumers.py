@@ -4,7 +4,7 @@ import pytest
 import pytest_asyncio
 
 from easynats import Connection
-from easynats.jetstream.entities import Stream
+from easynats.jetstream.sdk import Stream
 
 
 @pytest.mark.asyncio
@@ -12,7 +12,7 @@ class BaseTestConsumer:
     @pytest_asyncio.fixture(autouse=True)
     async def setup(self):
         self.conn = Connection()
-        self.js_conn = self.conn.jetstream()
+        self.js_conn = self.conn.jetstream
         self.manager = self.js_conn.streams
         async with self.conn:
             self.stream = await self.setup_stream()

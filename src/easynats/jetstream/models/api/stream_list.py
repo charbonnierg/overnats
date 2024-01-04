@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-from easynats.channel import Channel, Command
+from easynats.typed import Channel, Command
 
 from .common.stream_info import StreamInfo
 

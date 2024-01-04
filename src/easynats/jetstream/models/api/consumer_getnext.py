@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from easynats.channel import Channel, Command
+from easynats.typed import Channel, Command
 
 
 @dataclass

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Union
 
-from easynats.channel import Channel, Command
+from easynats.typed import Channel, Command
 
 from .api_error import JetStreamApiV1Error
 from .common.consumer_configuration import ConsumerConfig

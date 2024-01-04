@@ -9,15 +9,15 @@ async def main():
         options.WithConnectTimeout(5),
     ) as nc:
         # Publish a message without payload
-        reply = await nc.request(subject="foo", timeout=1)
+        reply = await nc.core.request(subject="foo", timeout=1)
         # Send a request with payload
-        reply = await nc.request(
+        reply = await nc.core.request(
             subject="foo",
             payload=b"Hello World!",
             timeout=1,
         )
         # Send a request with headers
-        reply = await nc.request(
+        reply = await nc.core.request(
             subject="foo",
             payload=b"Hello World!",
             headers={
@@ -27,10 +27,10 @@ async def main():
             timeout=1,
         )
         # The headers of the reply
-        print(reply.headers)
+        print(reply.headers())
         # The payload of the reply
-        print(reply.payload)
+        print(reply.payload())
         # The subject on which reply was sent
-        print(reply.subject)
+        print(reply.subject())
         # The subject on which request was sent
-        print(reply.origin)
+        print(reply.origin_subject())

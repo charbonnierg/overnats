@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from easynats.channel import Channel, Command
+from easynats.typed import Channel, Command
 
 from .common.consumer_info import ConsumerInfo
 
